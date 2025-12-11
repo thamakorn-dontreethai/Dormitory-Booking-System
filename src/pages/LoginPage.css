@@ -1,0 +1,137 @@
+/* LoginPage.css */
+
+/* --- 1. Global Styles (ควรอยู่ในไฟล์ CSS หลักเช่น App.css) --- */
+/* หากยังไม่มี ให้เพิ่มส่วนนี้เพื่อคุมธีมสีโดยรวม */
+:root {
+  --bg-color: #121212;
+  --card-color: #1e1e1e;
+  --border-color: #333;
+  --primary-color: #ff8c00; /* สีส้ม */
+  --text-color: #f0f0f0;
+  --text-muted: #aaa;
+  --error-color: #e74c3c;   /* สีแดงสำหรับ error */
+}
+
+/* ทำให้ body เต็มหน้าจอและจัดฟอร์มไว้ตรงกลาง */
+body {
+  font-family: 'Kanit', sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  margin: 0;
+}
+
+/* --- 2. Login Page Container --- */
+/* กล่องหลักที่หุ้มฟอร์มทั้งหมด */
+.login-wrapper {
+  background-color: var(--card-color);
+  padding: 40px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  width: 100%;
+  max-width: 400px; /* กำหนดความกว้างสูงสุด */
+  text-align: center;
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+/* --- 3. Form Elements --- */
+
+/* หัวข้อ "เข้าสู่ระบบนิสิต" */
+.login-wrapper h2 {
+  color: var(--primary-color);
+  margin-top: 0;
+  margin-bottom: 25px;
+  font-size: 2rem;
+  font-weight: 600;
+}
+
+/* จัดเรียง input และ button */
+.login-wrapper form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px; /* ระยะห่างระหว่างช่อง input และปุ่ม */
+}
+
+/* ช่องกรอก username และ password */
+.login-wrapper input {
+  background-color: #2a2a2a;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 14px 18px;
+  color: var(--text-color);
+  font-size: 1rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+/* ทำให้ placeholder สีจางลง */
+.login-wrapper input::placeholder {
+  color: var(--text-muted);
+}
+
+/* เพิ่มเอฟเฟกต์ตอนกดที่ช่อง input */
+.login-wrapper input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(255, 140, 0, 0.3);
+}
+
+/* ปุ่ม "เข้าสู่ระบบ" */
+.login-wrapper button {
+  background-color: var(--primary-color);
+  color: #111;
+  border: none;
+  padding: 14px;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.1s;
+}
+
+/* เอฟเฟกต์ตอนเอาเมาส์ชี้ปุ่ม */
+.login-wrapper button:hover {
+  background-color: #e67e00; /* สีส้มเข้มขึ้นเล็กน้อย */
+}
+
+/* เอฟเฟกต์ตอนกดปุ่ม */
+.login-wrapper button:active {
+    transform: scale(0.98);
+}
+
+/* --- 4. Error Message --- */
+/* กล่องข้อความแจ้งเตือน Error */
+.login-wrapper .error {
+  background-color: rgba(231, 76, 60, 0.15);
+  color: var(--error-color);
+  border: 1px solid var(--error-color);
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 0.9rem;
+  margin-top: 5px; /* เว้นระยะห่างด้านบนเล็กน้อย */
+  animation: shake 0.3s;
+}
+
+/* --- 5. Animations (ลูกเล่นเสริม) --- */
+
+/* อนิเมชั่นตอนฟอร์มปรากฏขึ้น */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* อนิเมชั่นสั่นๆ ตอน error */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}

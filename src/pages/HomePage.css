@@ -1,0 +1,174 @@
+/* =========================
+   0) THEME & GLOBAL
+========================= */
+:root{
+  --bg-color:#121212;
+  --card-color:#1e1e1e;
+  --border-color:#2a2a2a;
+  --primary-color:#ff8c00;
+  --accent-color:#41274d;
+  --text-color:#f0f0f0;
+  --text-muted:#a9a9a9;
+
+  --space-1:4px;
+  --space-2:8px;
+  --space-3:12px;
+  --space-4:16px;
+  --space-5:20px;
+  --space-6:24px;
+  --space-8:32px;
+  --radius:12px;
+  --shadow:0 10px 24px rgba(0,0,0,.25);
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  font-family:'Kanit',system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial,'Noto Sans',sans-serif;
+  background:var(--bg-color);
+  color:var(--text-color);
+  margin:0;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+}
+
+/* Headings scale (ลด margin ให้ช่องบนแนบขึ้น) */
+h1{font-size:clamp(28px,4vw,56px);color:var(--primary-color);margin:.1em 0}
+h2{font-size:clamp(22px,2.6vw,32px);color:var(--primary-color);margin:.3em 0 .6em}
+h3{font-size:clamp(18px,2.1vw,24px);color:var(--primary-color);margin:.35em 0 .3em}
+
+/* =========================
+   1) GRID (2 Columns with Areas)
+========================= */
+.homepage-content-wrapper{max-width:1280px;margin:0 auto;padding:var(--space-6)}
+.page-container{
+  display:grid;
+  grid-template-columns:260px 1fr;           /* ซ้าย | ขวา */
+  grid-template-rows:auto 1fr;               /* แถวบน = header ; แถวล่าง = main */
+  grid-template-areas:
+    "sidebar header"
+    "sidebar main";
+  gap:var(--space-6);
+  align-items:start;                          /* ให้เสมอแนวบน */
+}
+
+/* =========================
+   2) HEADER BAR (คอลัมน์ขวา แถวบน)
+========================= */
+.main-header{
+  grid-area: header;                          /* <<< วางด้วย area */
+  background:linear-gradient(90deg,var(--accent-color) 0%,#4b0082 100%);
+  border:1px solid #7a00b3;
+  border-radius:16px;
+  padding:clamp(12px,2vw,20px) clamp(16px,2.2vw,28px);
+  display:flex;justify-content:space-between;align-items:center;
+  gap:var(--space-4);
+  box-shadow:var(--shadow);
+  margin:0;                                   /* ไม่มี margin ด้านล่างเพื่อชิด main */
+}
+.main-header h1{margin:0;font-weight:800;letter-spacing:.2px}
+.main-header .subtitle{color:#ddd;font-size:clamp(12px,1.6vw,14px)}
+
+/* Card base */
+.card{
+  background:var(--card-color);
+  border:1px solid var(--border-color);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+}
+
+/* =========================
+   3) LEFT SIDEBAR (คอลัมน์ซ้าย ทั้งสองแถว)
+========================= */
+.left-sidebar{
+  grid-area: sidebar;
+  padding:var(--space-6);
+  position:sticky;            /* เมนูติดบนเวลาสกรอลล์ยาว */
+  top:var(--space-6);
+}
+.left-sidebar h3{
+  border-bottom:2px solid var(--primary-color);
+  padding-bottom:var(--space-3);
+  margin:0 0 var(--space-4);
+  font-size:18px;
+}
+.left-sidebar ul{list-style:none;padding:0;margin:var(--space-4) 0 0}
+.left-sidebar li{margin-bottom:var(--space-3)}
+.left-sidebar a{
+  display:block;
+  padding:12px 14px;
+  text-decoration:none;
+  color:var(--text-color);
+  border:1px solid transparent;
+  border-radius:10px;
+  font-weight:600;
+  transition:transform .12s ease, background-color .2s ease, border-color .2s ease;
+}
+.left-sidebar a i{margin-right:10px;width:20px;text-align:center}
+.left-sidebar a:hover{background:#2a2a2a;border-color:#3a3a3a;transform:translateY(-1px)}
+.left-sidebar a.active{background:var(--primary-color);color:#111}
+
+.left-sidebar .fee-section{
+  margin-top:var(--space-6);
+  padding-top:var(--space-4);
+  border-top:1px solid var(--border-color);
+}
+.left-sidebar .fee-section h4{color:var(--text-muted);font-size:14px;margin:0 0 var(--space-3)}
+.left-sidebar .fee-section p{
+  margin:0 0 8px;
+  display:flex;justify-content:space-between;gap:10px;
+  font-size:14px;color:var(--text-color)
+}
+.left-sidebar .fee-section p span{color:var(--text-muted)}
+
+/* =========================
+   4) CENTER CONTENT (คอลัมน์ขวา แถวล่าง)
+========================= */
+.center-content{
+  grid-area: main;                            /* <<< วางด้วย area ต่อใต้ header */
+  padding:clamp(18px,2.2vw,28px);
+}
+.section-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-4)}
+
+.announcement-card{
+  background:#222;
+  border:1px solid #3b3b3b;
+  border-left:5px solid var(--accent-color);
+  border-radius:10px;
+  padding:18px;
+  margin-bottom:var(--space-5);
+  transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.announcement-card:hover{transform:translateY(-3px);box-shadow:0 12px 22px rgba(0,0,0,.28)}
+.announcement-card h3{margin:0 0 6px;font-weight:800}
+.announcement-card .date{color:var(--text-muted);font-size:13px;margin-bottom:10px}
+.announcement-card p{line-height:1.7;margin:0}
+
+/* Widget ใช้ซ้ำได้ */
+.right-widget{
+  background:#202020;border:1px solid #333;border-radius:12px;
+  padding:16px;margin-top:var(--space-5)
+}
+.right-widget h4{margin:0 0 10px;color:#eee;font-size:16px;font-weight:700}
+
+/* =========================
+   5) RESPONSIVE
+========================= */
+@media (max-width: 992px){
+  .homepage-content-wrapper{padding:var(--space-4)}
+  .page-container{
+    grid-template-columns:1fr;
+    grid-template-rows:auto auto auto;
+    grid-template-areas:
+      "header"
+      "sidebar"
+      "main";
+    gap:var(--space-4);
+  }
+  .left-sidebar{position:static;top:auto}
+}
+
+/* ลด motion สำหรับผู้ใช้ที่ไม่ชอบ animation */
+@media (prefers-reduced-motion: reduce){
+  *{transition:none !important;animation:none !important}
+}
