@@ -1,7 +1,7 @@
 import React, { useState } from 'react'; 
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
-import './LoginPage.css'; // เราจะสร้างไฟล์ CSS นี้ในขั้นตอนถัดไป
+import './LoginPage.css';
 
 const API_URL = 'http://localhost:3001';
 
