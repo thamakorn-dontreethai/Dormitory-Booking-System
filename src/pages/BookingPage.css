@@ -18,15 +18,15 @@
   --access-bg: #1a4a6b; 
   --access-fg: #dbe7ff;
   
-  /* [ลบ] ค่าคงที่สำหรับ Sticky */
+
 }
 html, body { 
   background: var(--bg); 
   color: var(--fg); 
 font-family: 'Kanit', sans-serif;
-  /* [ลบ] scroll-padding-top */
+
 }
-/* ------------------------------------------- */
+
 
 .bk-wrapper {
 max-width: 1500px;
@@ -56,7 +56,7 @@ position: relative;
  padding: 24px 16px 40px;
  position: relative;
 }
-/* --- [แก้ไข] Userbox Layout --- */
+
 .userbox { 
 text-align: right; 
 display: flex;
@@ -87,14 +87,14 @@ white-space: nowrap;
  background:#ffffff14; 
 }
 .badge.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-/* ------------------------------- */
+
 
 /* Card */
 .card {
  background: var(--card);
  border: 1px solid var(--border);
  border-radius: 18px;
- overflow: hidden; /* [แก้ไข] กลับเป็น hidden */
+ overflow: hidden; 
  margin-top: 4px;
  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
 }
@@ -106,9 +106,8 @@ white-space: nowrap;
  flex-direction: column;
  gap: 8px;
  border-bottom: 1px solid var(--border);
- padding: 0 0 20px; /* [แก้ไข] ปรับ Padding */
+ padding: 0 0 20px; 
  margin: 0 0 20px;
-  /* [ลบ] position: sticky และคุณสมบัติที่เกี่ยวข้องทั้งหมด */
 }
 .bk-toolbar label {
  font-size: 14px; font-weight: 600; color: var(--muted);
@@ -149,7 +148,7 @@ white-space: nowrap;
 }
 /* (ลบ) หัวตารางแบบ Sticky */
 .bk-table thead th {
- position: static; /* [แก้ไข] กลับเป็นค่าปกติ */
+ position: static; 
  background: #1f1f25;
 }
 .bk-table tbody tr { border-bottom: 1px solid var(--border); transition: background-color .2s ease; }
