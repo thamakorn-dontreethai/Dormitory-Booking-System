@@ -1,18 +1,15 @@
-/* LoginPage.css */
 
-/* --- 1. Global Styles (ควรอยู่ในไฟล์ CSS หลักเช่น App.css) --- */
-/* หากยังไม่มี ให้เพิ่มส่วนนี้เพื่อคุมธีมสีโดยรวม */
 :root {
   --bg-color: #121212;
   --card-color: #1e1e1e;
   --border-color: #333;
-  --primary-color: #ff8c00; /* สีส้ม */
+  --primary-color: #ff8c00; 
   --text-color: #f0f0f0;
   --text-muted: #aaa;
-  --error-color: #e74c3c;   /* สีแดงสำหรับ error */
+  --error-color: #e74c3c;   
 }
 
-/* ทำให้ body เต็มหน้าจอและจัดฟอร์มไว้ตรงกลาง */
+
 body {
   font-family: 'Kanit', sans-serif;
   background-color: var(--bg-color);
