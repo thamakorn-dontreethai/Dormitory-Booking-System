@@ -1,4 +1,3 @@
-// src/pages/ConfirmationPage.jsx (ฉบับแก้ไขสมบูรณ์)
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -6,7 +5,6 @@ import './ConfirmationPage.css';
 import axios from 'axios';
 const API_URL = 'http://localhost:3001';
 
-// --- [แก้ไข] ย้ายคอมโพเนนต์ Modal ออกมาไว้ข้างนอก ---
 function PaymentModal({ isOpen, onClose, onConfirm, bookingState, bookedRoom, user }) {
   if (!isOpen) return null;
 
