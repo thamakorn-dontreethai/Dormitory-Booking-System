@@ -8,7 +8,6 @@ import jwt from "jsonwebtoken";
 import crypto from "crypto";
 
 dotenv.config();
-
 const app = express();
 app.use(cors({
   origin: 'http://localhost:5173',   // เปลี่ยนให้ตรงกับพอร์ต/โดเมนของเว็บคุณ
