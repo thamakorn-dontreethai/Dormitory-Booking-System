@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import './ConfirmationPage.css';
 import axios from 'axios';
-const API_URL = import.meta.env.VITE_API_URL || 'http://10.64.41.236:3001';
+const API_URL = import.meta.env.VITE_API_URL || 'http://192.168.0.120:3001';
 
 function PaymentModal({ isOpen, onClose, onConfirm, bookingState, bookedRoom, user }) {
   if (!isOpen) return null;
