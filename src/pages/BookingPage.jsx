@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './BookingPage.css';
 import axios from 'axios';
-const API_URL = import.meta.env.VITE_API_URL || 'http://192.168.0.120:3001';
+const API_URL = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:3001`;
 
 // --- Profile Modal ---
 function ProfileModal({ user, reservation, isOpen, onClose, onSimulatePayment, onLogout }) {

@@ -3,7 +3,7 @@ import axios from 'axios';
 import './HomePage.css';
 import { Link } from 'react-router-dom';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://192.168.0.120:3001';
+const API_URL = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:3001`;
 
 export default function HomePage() {
   const [stats, setStats] = useState([]);
