@@ -1,137 +1,248 @@
-/* LoginPage.css */
+/* ============================================
+   LoginPage.css — Green & White Minimal
+   เหมือน AdminLogin ทุกอย่าง
+   ============================================ */
 
-/* --- 1. Global Styles (ควรอยู่ในไฟล์ CSS หลักเช่น App.css) --- */
-/* หากยังไม่มี ให้เพิ่มส่วนนี้เพื่อคุมธีมสีโดยรวม */
-:root {
-  --bg-color: #121212;
-  --card-color: #1e1e1e;
-  --border-color: #333;
-  --primary-color: #ff8c00; /* สีส้ม */
-  --text-color: #f0f0f0;
-  --text-muted: #aaa;
-  --error-color: #e74c3c;   /* สีแดงสำหรับ error */
-}
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap');
 
-/* ทำให้ body เต็มหน้าจอและจัดฟอร์มไว้ตรงกลาง */
-body {
-  font-family: 'Kanit', sans-serif;
-  background-color: var(--bg-color);
-  color: var(--text-color);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
   margin: 0;
+  padding: 0;
 }
 
-/* --- 2. Login Page Container --- */
-/* กล่องหลักที่หุ้มฟอร์มทั้งหมด */
-.login-wrapper {
-  background-color: var(--card-color);
-  padding: 40px;
-  border-radius: 12px;
-  border: 1px solid var(--border-color);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+html,
+body,
+#root {
+  height: 100%;
   width: 100%;
-  max-width: 400px; /* กำหนดความกว้างสูงสุด */
-  text-align: center;
-  animation: fadeIn 0.5s ease-in-out;
 }
 
-/* --- 3. Form Elements --- */
-
-/* หัวข้อ "เข้าสู่ระบบนิสิต" */
-.login-wrapper h2 {
-  color: var(--primary-color);
-  margin-top: 0;
-  margin-bottom: 25px;
-  font-size: 2rem;
-  font-weight: 600;
+body {
+  font-family: 'DM Sans', 'Kanit', sans-serif;
+  background: #f4f7f4;
 }
 
-/* จัดเรียง input และ button */
-.login-wrapper form {
+/* ── Full-screen centered wrapper ──────────── */
+.login-wrapper {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f4f7f4;
+  padding: 24px;
+}
+
+/* ── Card ──────────────────────────────────── */
+.login-card {
+  background: #ffffff;
+  border: 1px solid #d0e4d0;
+  border-radius: 16px;
+  padding: 40px 36px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 4px 24px rgba(45, 122, 45, 0.08);
+  animation: fadeIn 0.4s ease;
+}
+
+/* ── Back button: fixed top-left ───────────── */
+.login-back-btn {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  z-index: 100;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #ffffff;
+  border: 1px solid #d0e4d0;
+  color: #3a5c3a;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  padding: 8px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(45, 122, 45, 0.08);
+  transition: all 0.18s ease;
+}
+
+.login-back-btn:hover {
+  background: #e6f4e6;
+  border-color: #2d7a2d;
+  color: #2d7a2d;
+  transform: translateX(-2px);
+}
+
+/* ── Logo icon ─────────────────────────────── */
+.login-logo {
+  width: 48px;
+  height: 48px;
+  background: #e6f4e6;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  margin-bottom: 20px;
+}
+
+/* ── Title & desc ──────────────────────────── */
+.login-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #1a2e1a;
+  letter-spacing: -0.3px;
+  margin-bottom: 6px;
+}
+
+.login-desc {
+  font-size: 14px;
+  color: #6b886b;
+  margin-bottom: 28px;
+  line-height: 1.5;
+}
+
+/* ── Form ──────────────────────────────────── */
+.login-form {
   display: flex;
   flex-direction: column;
-  gap: 18px; /* ระยะห่างระหว่างช่อง input และปุ่ม */
+  gap: 16px;
 }
 
-/* ช่องกรอก username และ password */
-.login-wrapper input {
-  background-color: #2a2a2a;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 14px 18px;
-  color: var(--text-color);
-  font-size: 1rem;
-  transition: border-color 0.2s, box-shadow 0.2s;
+.login-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
-/* ทำให้ placeholder สีจางลง */
-.login-wrapper input::placeholder {
-  color: var(--text-muted);
+.login-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #3a5c3a;
 }
 
-/* เพิ่มเอฟเฟกต์ตอนกดที่ช่อง input */
-.login-wrapper input:focus {
+.login-input {
+  padding: 11px 14px;
+  border: 1.5px solid #d0e4d0;
+  border-radius: 10px;
+  font-size: 14px;
+  font-family: inherit;
+  color: #1a2e1a;
+  background: #f4f7f4;
   outline: none;
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(255, 140, 0, 0.3);
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
 }
 
-/* ปุ่ม "เข้าสู่ระบบ" */
-.login-wrapper button {
-  background-color: var(--primary-color);
-  color: #111;
-  border: none;
-  padding: 14px;
+.login-input:focus {
+  border-color: #2d7a2d;
+  box-shadow: 0 0 0 3px rgba(45, 122, 45, 0.1);
+  background: #ffffff;
+}
+
+.login-input::placeholder {
+  color: #6b886b;
+}
+
+.login-input:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ── Error ─────────────────────────────────── */
+.login-error {
+  padding: 10px 14px;
+  background: #ffebee;
+  border: 1px solid #f5b8b5;
   border-radius: 8px;
-  font-size: 1.1rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background-color 0.2s, transform 0.1s;
+  font-size: 13px;
+  color: #c62828;
+  animation: shake 0.4s ease;
 }
 
-/* เอฟเฟกต์ตอนเอาเมาส์ชี้ปุ่ม */
-.login-wrapper button:hover {
-  background-color: #e67e00; /* สีส้มเข้มขึ้นเล็กน้อย */
-}
-
-/* เอฟเฟกต์ตอนกดปุ่ม */
-.login-wrapper button:active {
-    transform: scale(0.98);
-}
-
-/* --- 4. Error Message --- */
-/* กล่องข้อความแจ้งเตือน Error */
-.login-wrapper .error {
-  background-color: rgba(231, 76, 60, 0.15);
-  color: var(--error-color);
-  border: 1px solid var(--error-color);
-  border-radius: 8px;
+/* ── Submit button ─────────────────────────── */
+.login-btn {
+  margin-top: 4px;
   padding: 12px;
-  font-size: 0.9rem;
-  margin-top: 5px; /* เว้นระยะห่างด้านบนเล็กน้อย */
-  animation: shake 0.3s;
+  background: #2d7a2d;
+  color: #ffffff;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.18s, transform 0.1s;
 }
 
-/* --- 5. Animations (ลูกเล่นเสริม) --- */
+.login-btn:hover:not(:disabled) {
+  background: #1e5c1e;
+}
 
-/* อนิเมชั่นตอนฟอร์มปรากฏขึ้น */
+.login-btn:active:not(:disabled) {
+  transform: scale(0.99);
+}
+
+.login-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ── Admin link ────────────────────────────── */
+.login-admin-link {
+  margin-top: 20px;
+  text-align: center;
+  font-size: 13px;
+  color: #6b886b;
+}
+
+.login-admin-link a {
+  color: #2d7a2d;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.login-admin-link a:hover {
+  text-decoration: underline;
+}
+
+/* ── Animations ────────────────────────────── */
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(-20px);
+    transform: translateY(12px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
 
-/* อนิเมชั่นสั่นๆ ตอน error */
 @keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-5px); }
-  75% { transform: translateX(5px); }
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  20%,
+  60% {
+    transform: translateX(-5px);
+  }
+
+  40%,
+  80% {
+    transform: translateX(5px);
+  }
+}
+
+/* ── Mobile ────────────────────────────────── */
+@media (max-width: 480px) {
+  .login-card {
+    padding: 28px 20px;
+  }
 }

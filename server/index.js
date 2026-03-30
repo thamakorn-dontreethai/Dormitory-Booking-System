@@ -1,525 +1,545 @@
-// index.js
-import express from "express";
-import sql from "mssql";
-import dotenv from "dotenv";
-import cors from "cors";
-import cookieParser from "cookie-parser";
-import jwt from "jsonwebtoken";
-import crypto from "crypto";
+import mongoose from 'mongoose';
+import express from 'express';
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcrypt';
+import Student from './models/Student.js';
+import Room from './models/Room.js';
+import Booking from './models/Booking.js';
+import dotenv from 'dotenv';
+import cors from 'cors';
+import Building from './models/Building.js';
+import RoomType from './models/RoomType.js';
 
 dotenv.config();
 const app = express();
-app.use(cors({
-  origin: 'http://localhost:5173',   // เปลี่ยนให้ตรงกับพอร์ต/โดเมนของเว็บคุณ
-  credentials: true,                 // ถ้าใช้คุกกี้/Authorization header
-  methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
-  allowedHeaders: ['Content-Type','Authorization'],
-  optionsSuccessStatus: 204
-}));
+app.use(cors());
 app.use(express.json());
-app.use(cookieParser());
 
-// แนะนำให้ระบุ origin ของเว็บคุณแทน true (เพื่อความปลอดภัย)
-app.use(cors({
-  origin: process.env.WEB_ORIGIN || true, // เช่น 'http://localhost:5173'
-  credentials: true
-}));
+// --- Middleware ตรวจ JWT ---
+const verifyToken = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1]; // Bearer <token>
 
-/* =========== DB POOL =========== */
-const pool = new sql.ConnectionPool({
-  server: process.env.MSSQL_SERVER,
-  user: process.env.MSSQL_USER,
-  password: process.env.MSSQL_PASSWORD,
-  database: process.env.MSSQL_DATABASE,
-  options: {
-    encrypt: false,
-    trustServerCertificate: true,
-    port: Number(process.env.MSSQL_PORT || 1433)
-  }
+    if (!token) {
+        return res.status(401).json({ message: 'ไม่พบ Token กรุณาเข้าสู่ระบบ' });
+    }
+
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret123');
+        req.user = decoded;
+        next();
+    } catch (err) {
+        return res.status(403).json({ message: 'Token ไม่ถูกต้องหรือหมดอายุ' });
+    }
+};
+
+// --- POST /api/login ---
+app.post('/api/login', async (req, res) => {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+        return res.status(400).json({ message: 'กรุณากรอก username และ password' });
+    }
+
+    try {
+        const student = await Student.findOne({ username });
+
+        if (!student) {
+            return res.status(401).json({ message: 'Username หรือ Password ไม่ถูกต้อง' });
+        }
+
+        // เทียบ password ด้วย bcrypt
+        const isMatch = await bcrypt.compare(password, student.password_hash);
+        if (!isMatch) {
+            return res.status(401).json({ message: 'Username หรือ Password ไม่ถูกต้อง' });
+        }
+
+        const token = jwt.sign(
+            { id: student._id, username: student.username, student_code: student.student_code },
+            process.env.JWT_SECRET || 'secret123',
+            { expiresIn: process.env.JWT_EXPIRES || '1h' }
+        );
+
+        res.json({
+            message: 'เข้าสู่ระบบสำเร็จ',
+            token,
+            user: {
+                id: student._id,
+                username: student.username,
+                full_name: student.full_name,
+                student_code: student.student_code,
+                gender: student.gender
+            }
+        });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'เกิดข้อผิดพลาดที่ Server', error: err.message });
+    }
 });
 
-// ให้แน่ใจว่า connect เสร็จก่อนใช้ทุก endpoint
-const poolConnect = pool.connect();
+const hashExistingPasswords = async () => {
+    const students = await mongoose.connection.collection('students').find().toArray();
 
-/* =========== JWT HELPERS / MIDDLEWARE =========== */
-const JWT_SECRET = process.env.JWT_SECRET || "MY_SUPER_SECRET_KEY_123";
-const signToken = (payload) =>
-  jwt.sign(payload, JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES || "8h" });
+    for (const student of students) {
+        // เช็คว่า hash แล้วยัง (bcrypt hash จะขึ้นต้นด้วย $2b$)
+        if (!student.password_hash.startsWith('$2b$')) {
+            const hashed = await bcrypt.hash(student.password_hash, 10);
+            await mongoose.connection.collection('students').updateOne(
+                { _id: student._id },
+                { $set: { password_hash: hashed } }
+            );
+            console.log(`✅ hashed: ${student.username}`);
+        }
+    }
+};
 
-function requireAuth(req, res, next) {
-  const h = req.headers.authorization || "";
-  const token = h.startsWith("Bearer ") ? h.slice(7) : null;
-  if (!token) return res.status(401).json({ message: "Unauthorized" });
-  try {
-    req.user = jwt.verify(token, JWT_SECRET);
-    next();
-  } catch {
-    return res.status(401).json({ message: "Invalid token" });
-  }
-}
+// --- POST /api/booking (ต้อง login ก่อน) ---
+app.post('/api/booking', verifyToken, async (req, res) => {
+    const { roomId, start_date, end_date } = req.body;
+    const studentId = req.user.id; // ดึงจาก token
 
-/* =========== API: HOME PAGE STATS (ยังใช้ได้) =========== */
-app.get("/api/building-stats", async (req, res) => {
-  try {
-    await poolConnect;
-    const q = `
-      SELECT
-        b.building_id,
-        b.building_name,
-        b.gender_type,
-        COUNT(r.room_id) AS total_rooms,
-        SUM(CASE WHEN r.status = 'ACTIVE' THEN 1 ELSE 0 END) AS vacant_rooms,
-        SUM(CASE WHEN r.status <> 'ACTIVE' THEN 1 ELSE 0 END) AS full_rooms
-      FROM dbo.buildings AS b
-      LEFT JOIN dbo.rooms AS r ON b.building_id = r.building_id
-      GROUP BY b.building_id, b.building_name, b.gender_type
-      ORDER BY b.building_id;
-    `;
-    const { recordset } = await pool.request().query(q);
-    res.json(recordset);
-  } catch (err) {
-    console.error("SQL Error:", err);
-    res.status(500).json({ success: false, message: "Server error while fetching building stats" });
-  }
+    if (!roomId || !start_date || !end_date) {
+        return res.status(400).json({ message: 'กรุณากรอกข้อมูลให้ครบ' });
+    }
+
+    try {
+        // 1. ตรวจสอบห้อง
+        const room = await Room.findById(roomId);
+        if (!room) {
+            return res.status(404).json({ message: 'ไม่พบห้องพัก' });
+        }
+        if (room.status !== 'ACTIVE') {
+            return res.status(400).json({ message: 'ห้องนี้ไม่ว่าง' });
+        }
+
+        // 2. ดึงข้อมูล student
+        const student = await Student.findById(studentId);
+        if (!student) {
+            return res.status(404).json({ message: 'ไม่พบข้อมูลนิสิต' });
+        }
+
+        // 3. สร้าง reservation (snapshot ณ เวลาจอง)
+        const newBooking = new Booking({
+            student_id: student._id,
+            room_id: room._id,
+            student_code: student.student_code,  // snapshot
+            full_name: student.full_name,          // snapshot
+            room_number: room.room_number,         // snapshot
+            start_date: new Date(start_date),
+            end_date: new Date(end_date),
+            status: 'PENDING',
+            created_at: new Date()
+        });
+        await newBooking.save();
+
+        // 4. อัปเดตสถานะห้อง
+        room.status = 'INACTIVE';
+        room.updated_at = new Date();
+        room.updated_by = student._id;
+        await room.save();
+
+        res.status(201).json({
+            message: 'จองห้องสำเร็จ รอการอนุมัติ',
+            booking: newBooking
+        });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'เกิดข้อผิดพลาด', error: err.message });
+    }
 });
 
-/* =========== API: ROOMS (filters) (ยังใช้ได้) =========== */
-app.get("/api/rooms", async (req, res) => {
-  const { gender, capacity, maxPrice, query: qtxt } = req.query;
-  try {
-    await poolConnect;
-    const request = pool.request();
-    let q = `
-      SELECT
-        r.room_id, r.room_number, r.gender_restriction, r.status,
-        b.building_code, b.building_name,
-        rt.type_code, rt.type_name, rt.capacity, rt.monthly_price, rt.cooling_type
-      FROM dbo.rooms r
-      JOIN dbo.room_types rt ON r.type_id = rt.type_id
-      JOIN dbo.buildings b  ON r.building_id = b.building_id
-    `;
-    const where = [];
-    where.push("r.status = 'ACTIVE'");
-    if (gender && gender !== "ทั้งหมด") {
-      where.push("r.gender_restriction = @gender");
-      request.input("gender", sql.VarChar(10), String(gender).toUpperCase());
-    }
-    if (capacity && capacity !== "ทั้งหมด") {
-      where.push("rt.capacity = @capacity");
-      request.input("capacity", sql.Int, Number(capacity));
-    }
-    if (maxPrice) {
-      where.push("rt.monthly_price <= @maxPrice");
-      request.input("maxPrice", sql.Int, Number(maxPrice));
-    }
-    if (qtxt) {
-      where.push("(b.building_name LIKE @qtxt OR rt.type_name LIKE @qtxt)");
-      request.input("qtxt", sql.NVarChar, `%${qtxt}%`);
-    }
-    if (where.length) q += " WHERE " + where.join(" AND ");
-    const { recordset } = await request.query(q);
-    res.json(recordset);
-  } catch (err) {
-    console.error("SQL Error:", err);
-    res.status(500).json({ message: "Error fetching rooms" });
-  }
+// --- GET /api/rooms (ดูห้องว่าง) ---
+app.get('/api/rooms', async (req, res) => {
+    try {
+        const rooms = await Room.find({ status: 'ACTIVE' })
+            .populate('building_id', 'building_name gender_type')
+            .populate('type_id', 'type_name monthly_price cooling_type capacity');
+
+        res.json(rooms);
+    } catch (err) {
+        res.status(500).json({ message: 'เกิดข้อผิดพลาด', error: err.message });
+    }
 });
-
-/* =========== API: LOGIN (ยังใช้ได้) =========== */
-app.post("/api/login", async (req, res) => {
-  const { username, password } = req.body;
-  if (!username || !password)
-    return res.status(400).json({ success: false, message: "Username and password are required" });
-  try {
-    await poolConnect;
-    const rs = await pool.request()
-      .input("username", sql.NVarChar, username)
-      .query(`
-        SELECT TOP 1
-          student_id, student_code, full_name, gender, username, password
-        FROM dbo.students
-        WHERE username = @username
-      `);
-    if (!rs.recordset.length)
-      return res.status(404).json({ success: false, message: "User not found" });
-    const u = rs.recordset[0];
-    if (u.password !== password)
-      return res.status(401).json({ success: false, message: "Invalid password" });
-    const token = signToken({
-      sub: u.student_id,
-      role: "student",
-      name: u.full_name,
-      gender: u.gender
-    });
-    res.json({
-      success: true,
-      message: "Login success",
-      token,
-      user: {
-        student_id: u.student_id,
-        student_code: u.student_code,
-        username: u.username,
-        full_name: u.full_name,
-        gender: u.gender,
-        role: "student"
-      }
-    });
-  } catch (err) {
-    console.error("Login API Error:", err);
-    res.status(500).json({ success: false, message: err?.originalError?.message || "Server error" });
-  }
-});
-
-/* =========== API: LOGOUT (ยังใช้ได้) =========== */
-app.post("/api/logout", (req, res) => {
-  res.json({ success: true, message: "Logged out successfully" });
-});
-
-/* =========== API: ME (อ่านโปรไฟล์จาก token) (ยังใช้ได้) =========== */
-app.get("/api/me", requireAuth, async (req, res) => {
-  try {
-    await poolConnect;
-    const rs = await pool.request()
-      .input("sid", sql.Int, req.user.sub)
-      .query(`
-        SELECT TOP 1
-          student_id, student_code, username, full_name, gender, faculty, study_year
-        FROM dbo.students
-        WHERE student_id = @sid
-      `);
-    const u = rs.recordset[0];
-    if (!u) return res.status(401).json({ message: "expired" });
-    return res.json({
-      user: {
-        student_id: u.student_id,
-        student_code: u.student_code,
-        username: u.username,
-        full_name: u.full_name,
-        gender: u.gender,
-        faculty: u.faculty,
-        study_year: u.study_year,
-        role: "student",
-      }
-    });
-  } catch (err) {
-    console.error("ME Error:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
-/* =========== [API แก้ไข] GET MY CURRENT RESERVATION =========== */
-app.get("/api/my-reservation", requireAuth, async (req, res) => {
-  const studentId = req.user.sub;
-
-  try {
-    await poolConnect;
-    const reservation = await pool.request()
-      .input("studentId_fetch", sql.Int, studentId)
-      .query(`
-        SELECT TOP 1
-          res.room_id, res.room_number,
-          res.student_code, res.full_name,
-          res.status,
-          rt.type_name, rt.capacity, rt.monthly_price, rt.cooling_type
-        FROM dbo.reservations res
-        JOIN dbo.rooms r ON res.room_id = r.room_id
-        JOIN dbo.room_types rt ON r.type_id = rt.type_id
-        WHERE res.student_id = @studentId_fetch AND res.status IN ('PENDING', 'CONFIRMED')
-      `);
-  
-    if (reservation.recordset.length > 0) {
-      res.json({ reservation: reservation.recordset[0] });
-    } else {
-      res.json({ reservation: null });
-    }
-
-  } catch (err) {
-    console.error("Get My Reservation Error:", err);
-    res.status(500).json({ success: false, message: "เกิดข้อผิดพลาดบนเซิร์ฟเวอร์", error: err.message });
-  }
-});
-
-/* =========== [API ใหม่] GET ALL RESERVATIONS FOR A ROOM =========== */
-app.get("/api/reservations/by-room", requireAuth, async (req, res) => {
-  const { room_id } = req.query;
-  if (!room_id) {
-    return res.status(400).json({ message: "Room ID is required" });
-  }
-
-  try {
-    await poolConnect;
-    const occupants = await pool.request()
-      .input("roomId", sql.Int, room_id)
-      .query(`
-        SELECT 
-          res.room_number,
-          res.student_code,
-          res.full_name,
-          res.status
-        FROM dbo.reservations res
-        WHERE res.room_id = @roomId AND res.status IN ('PENDING', 'CONFIRMED')
-      `);
-    
-    res.json({ reservations: occupants.recordset });
-
-  } catch (err) {
-    console.error("Get Reservations by Room Error:", err);
-    res.status(500).json({ success: false, message: "เกิดข้อผิดพลาดบนเซิร์ฟเวอร์", error: err.message });
-  }
-});
-
-/* =========== [API ใหม่] CONFIRM PAYMENT (SIMULATED) =========== */
-app.patch("/api/my-reservation/confirm", requireAuth, async (req, res) => {
-  const studentId = req.user.sub;
-
-  try {
-    await poolConnect;
-
-    // 1. อัปเดตสถานะการจอง
-    const updateResult = await pool.request()
-      .input("sid", sql.Int, studentId)
-      .query(`
-        UPDATE dbo.reservations 
-        SET status = 'CONFIRMED'
-        WHERE student_id = @sid AND status = 'PENDING'
-      `);
-
-    if (updateResult.rowsAffected[0] === 0) {
-      return res.status(404).json({ success: false, message: "ไม่พบการจองที่รอการชำระเงิน" });
-    }
-    
-    // 2. ดึงข้อมูลการจองที่อัปเดตแล้วส่งกลับไป
-    const reservation = await pool.request()
-      .input("studentId_fetch", sql.Int, studentId)
-      .query(`
-        SELECT TOP 1
-          res.room_id, res.room_number,
-          res.student_code, res.full_name,
-          res.status,
-          rt.type_name, rt.capacity, rt.monthly_price, rt.cooling_type
-        FROM dbo.reservations res
-        JOIN dbo.rooms r ON res.room_id = r.room_id
-        JOIN dbo.room_types rt ON r.type_id = rt.type_id
-        WHERE res.student_id = @studentId_fetch AND res.status = 'CONFIRMED'
-      `);
-
-    res.json({ 
-      success: true, 
-      message: "ชำระเงินสำเร็จ!", 
-      reservation: reservation.recordset[0]
-    });
-
-  } catch (err) {
-    console.error("Confirm Payment Error:", err);
-    res.status(500).json({ success: false, message: "เกิดข้อผิดพลาดบนเซิร์ฟเวอร์", error: err.message });
-  }
-});
-
-app.delete("/api/my-reservation", requireAuth, async (req, res) => {
-  const studentId = req.user.sub;
-
-  try {
-    await poolConnect;
-
-    // 1. ลบการจองที่ยัง Active อยู่
-    const result = await pool.request()
-      .input("sid", sql.Int, studentId)
-      .query(`
-        DELETE FROM dbo.reservations 
-        WHERE student_id = @sid AND status IN ('PENDING', 'CONFIRMED')
-      `);
-
-    if (result.rowsAffected[0] === 0) {
-      return res.status(404).json({ success: false, message: "ไม่พบข้อมูลการจองที่สามารถยกเลิกได้" });
-    }
-    
-    res.json({ success: true, message: "ยกเลิกการจองสำเร็จ" });
-
-  } catch (err) {
-    console.error("Cancel Reservation Error:", err);
-    res.status(500).json({ success: false, message: "เกิดข้อผิดพลาดบนเซิร์ฟเวอร์", error: err.message });
-  }
-});
-
-/* =========== [API แก้ไข] CREATE RESERVATION =========== */
-app.post("/api/reservations", requireAuth, async (req, res) => {
-  if (req.user.role !== "student") {
-    return res.status(403).json({ message: "Forbidden" });
-  }
-
-  const { roomId } = req.body;
-  const studentId = req.user.sub;
-
-  if (!roomId) {
-    return res.status(400).json({ success: false, message: "Room ID is required" });
-  }
-
-  try {
-    await poolConnect;
-    
-    const existingBookingCheck = await pool.request()
-      .input("studentId", sql.Int, studentId)
-      .query(`
-        SELECT COUNT(*) AS count 
-        FROM dbo.reservations 
-        WHERE student_id = @studentId AND status IN ('PENDING', 'CONFIRMED')
-      `);
-
-    if (existingBookingCheck.recordset[0].count > 0) {
-      return res.status(409).json({
-        success: false, 
-        message: "คุณมีการจองที่ยังดำเนินการอยู่แล้ว ไม่สามารถจองซ้ำได้" 
-      });
-    }
-
-    const roomStatusCheck = await pool.request()
-      .input("roomId_check", sql.Int, roomId)
-      .query(`
-        SELECT 
-          r.room_number,
-          rt.capacity,
-          (SELECT COUNT(*) FROM dbo.reservations WHERE room_id = @roomId_check AND status IN ('PENDING', 'CONFIRMED')) AS booked_count
-        FROM dbo.rooms r
-        JOIN dbo.room_types rt ON r.type_id = rt.type_id
-        WHERE r.room_id = @roomId_check
-      `);
-
-    if (roomStatusCheck.recordset.length === 0) {
-      return res.status(404).json({ success: false, message: "ไม่พบห้องพักนี้" });
-    }
-
-    const roomInfo = roomStatusCheck.recordset[0];
-
-    if (roomInfo.booked_count >= roomInfo.capacity) {
-      return res.status(409).json({ 
-        success: false, 
-        message: "ขออภัย ห้องนี้ถูกจองเต็มแล้ว" 
-      });
-    }
-
-    const studentInfoResult = await pool.request()
-      .input("studentId_fetch", sql.Int, studentId)
-      .query(`SELECT student_code, full_name FROM dbo.students WHERE student_id = @studentId_fetch`);
-    
-    if (studentInfoResult.recordset.length === 0) {
-      return res.status(404).json({ success: false, message: "ไม่พบข้อมูลนักศึกษา" });
-    }
-    const studentInfo = studentInfoResult.recordset[0];
-
-
-    await pool.request()
-      .input("studentId_insert", sql.Int, studentId)
-      .input("studentCode_insert", sql.NVarChar, studentInfo.student_code)
-      .input("fullName_insert", sql.NVarChar, studentInfo.full_name)
-      .input("roomId_insert", sql.Int, roomId)
-      .input("roomNumber_insert", sql.NVarChar, roomInfo.room_number)
-      .query(`
-        INSERT INTO dbo.reservations 
-          (student_id, student_code, full_name, room_id, room_number, status, created_at, start_date, end_date)
-        VALUES 
-          (@studentId_insert, @studentCode_insert, @fullName_insert, @roomId_insert, @roomNumber_insert, 'PENDING', GETDATE(), GETDATE(), DATEADD(month, 5, GETDATE()))
-      `);
-
-    const newReservation = await pool.request()
-      .input("studentId_new", sql.Int, studentId)
-      .query(`
-        SELECT 
-          res.room_number,
-          res.student_code,
-          res.full_name,
-          res.status
-        FROM dbo.reservations res
-        WHERE res.student_id = @studentId_new AND res.status = 'PENDING'
-      `);
-
-    res.status(201).json({ 
-      success: true, 
-      message: "ทำการจองห้องพักสำเร็จ! กรุณารอการยืนยัน",
-      reservation: newReservation.recordset[0]
-    });
-
-  } catch (err) {
-    console.error("Reservation Error:", err);
-    res.status(500).json({ success: false, message: "เกิดข้อผิดพลาดบนเซิร์ฟเวอร์", error: err.message });
-  }
-});
-
-// GET /api/buildings?gender=MALE|FEMALE
+// --- GET /api/buildings (filter ตาม gender) ---
 app.get('/api/buildings', async (req, res) => {
-  try {
-    await poolConnect;
-    const gender = String(req.query.gender || '').toUpperCase();
-    const rs = await pool.request()
-      .input('g', sql.VarChar, gender)
-      .query(`
-        SELECT building_id, building_name, gender_type
-        FROM dbo.buildings
-        WHERE (@g='' OR gender_type=@g)
-        ORDER BY building_id
-      `);
-    res.json(rs.recordset);
-  } catch (err) {
-    console.error('buildings error:', err);
-    res.status(500).json({ message: 'Server error' });
-  }
+    try {
+        const { gender } = req.query;
+        const query = gender ? { gender_type: gender } : {};
+        const buildings = await Building.find(query);
+        res.json(buildings.map(b => ({
+            building_id: b._id,
+            building_name: b.building_name,
+            gender_type: b.gender_type,
+            deposit_amount: b.deposit_amount
+        })));
+    } catch (err) {
+        res.status(500).json({ message: 'เกิดข้อผิดพลาด', error: err.message });
+    }
 });
 
-// GET /api/rooms/by-building?building_id=1
-app.get("/api/rooms/by-building", async (req, res) => {
-  try {
-    await poolConnect;
-    const buildingId = Number(req.query.building_id);
-    if (!buildingId) {
-      return res.status(400).json({ message: "building_id is required" });
-    }
+// --- GET /api/rooms/by-building ---
+app.get('/api/rooms/by-building', async (req, res) => {
+    try {
+        const { building_id } = req.query;
+        if (!building_id) return res.status(400).json({ message: 'กรุณาระบุ building_id' });
 
-    const q = `
-      SELECT
-        r.room_id, r.room_number, r.gender_restriction, r.status,
-        rt.type_name, rt.capacity, rt.monthly_price, rt.cooling_type,
-        (SELECT COUNT(*) FROM dbo.reservations res WHERE res.room_id = r.room_id AND res.status IN ('PENDING', 'CONFIRMED')) AS booked_count
-      FROM dbo.rooms r
-      JOIN dbo.room_types rt ON r.type_id = rt.type_id
-      WHERE r.building_id = @bid
-      ORDER BY TRY_CAST(r.room_number AS INT), r.room_number
-    `;
+        const rooms = await Room.find({ building_id: new mongoose.Types.ObjectId(building_id) })
+            .populate('type_id', 'type_name capacity monthly_price cooling_type');
 
-    const { recordset } = await pool.request()
-      .input("bid", sql.Int, buildingId)
-      .query(q);
+        // นับจำนวนคนที่จองแต่ละห้องแล้ว
+        const reservations = await Booking.find({
+            room_id: { $in: rooms.map(r => r._id) },
+            status: { $in: ['PENDING', 'CONFIRMED'] }
+        });
 
-    res.json(recordset);
-  } catch (err) {
-    console.error("by-building Error:", err);
-    res.status(500).json({ message: err?.originalError?.message || "Server error" });
-  }
+        const bookedCountMap = {};
+        reservations.forEach(r => {
+            const key = r.room_id.toString();
+            bookedCountMap[key] = (bookedCountMap[key] || 0) + 1;
+        });
+
+        const result = rooms.map(r => ({
+            room_id: r._id,
+            room_number: r.room_number,
+            type_name: r.type_id?.type_name || '-',
+            capacity: r.type_id?.capacity || 0,
+            monthly_price: r.type_id?.monthly_price?.toString() || '0',
+            cooling_type: r.type_id?.cooling_type || '-',
+            status: r.status,
+            booked_count: bookedCountMap[r._id.toString()] || 0,
+            is_disabled: 0
+        }));
+
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ message: 'เกิดข้อผิดพลาด', error: err.message });
+    }
 });
 
-/* =========== ADMIN DASHBOARD STATS (ยังใช้ได้) =========== */
-app.get("/api/admin/stats", async (req, res) => {
-  try {
-    await poolConnect;
-    const q = `
-      SELECT 
-        (SELECT COUNT(*) FROM dbo.rooms WHERE status='ACTIVE') AS active_rooms,
-        (SELECT COUNT(*) FROM dbo.students) AS total_students,
-        (SELECT COUNT(*) FROM dbo.reservations WHERE status='CONFIRMED') AS staying,
-        (SELECT COUNT(*) FROM dbo.reservations WHERE status='PENDING') AS pending
-    `;
-    const { recordset } = await pool.request().query(q);
-    res.json(recordset[0]);
-  } catch (err) {
-    console.error("SQL Error:", err);
-    res.status(500).json({ success: false, message: "Server error while fetching stats" });
-  }
+// --- GET /api/my-reservation ---
+app.get('/api/my-reservation', verifyToken, async (req, res) => {
+    try {
+        const reservation = await Booking.findOne({
+            student_id: req.user.id,
+            status: { $in: ['PENDING', 'CONFIRMED'] }
+        }).populate('room_id', 'room_number type_id')
+            .populate({ path: 'room_id', populate: { path: 'type_id', select: 'type_name' } });
+
+        if (!reservation) return res.json({ reservation: null });
+
+        res.json({
+            reservation: {
+                reserve_id: reservation._id,
+                room_id: reservation.room_id?._id,
+                room_number: reservation.room_number,
+                type_name: reservation.room_id?.type_id?.type_name,
+                status: reservation.status,
+                start_date: reservation.start_date,
+                end_date: reservation.end_date
+            }
+        });
+    } catch (err) {
+        res.status(500).json({ message: 'เกิดข้อผิดพลาด', error: err.message });
+    }
+});
+// --- POST /api/reservations (จองห้อง) ---
+app.post('/api/reservations', verifyToken, async (req, res) => {
+    const { roomId } = req.body;
+    const studentId = req.user.id;
+
+    try {
+        // เช็คว่าจองแล้วหรือยัง
+        const existing = await Booking.findOne({
+            student_id: studentId,
+            status: { $in: ['PENDING', 'CONFIRMED'] }
+        });
+        if (existing) {
+            return res.status(400).json({ message: 'คุณมีการจองอยู่แล้ว' });
+        }
+
+        const room = await Room.findById(roomId).populate('type_id');
+        if (!room) return res.status(404).json({ message: 'ไม่พบห้องพัก' });
+
+        const student = await Student.findById(studentId);
+        if (!student) return res.status(404).json({ message: 'ไม่พบข้อมูลนิสิต' });
+
+        const newBooking = new Booking({
+            student_id: student._id,
+            room_id: room._id,
+            student_code: student.student_code,
+            full_name: student.full_name,
+            room_number: room.room_number,
+            start_date: new Date(),
+            end_date: new Date(new Date().setMonth(new Date().getMonth() + 6)),
+            status: 'PENDING',
+            created_at: new Date()
+        });
+        await newBooking.save();
+
+        res.status(201).json({
+            message: 'จองห้องสำเร็จ รอการชำระเงิน',
+            reservation: {
+                student_code: student.student_code,
+                full_name: student.full_name,
+                room_number: room.room_number,
+                status: 'PENDING'
+            }
+        });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'เกิดข้อผิดพลาด', error: err.message });
+    }
 });
 
-/* =========== HEALTH CHECK =========== */
-app.get("/", (_req, res) => res.send("Server is running..."));
+// --- GET /api/reservations/by-room (ดูผู้จองในห้อง) ---
+app.get('/api/reservations/by-room', async (req, res) => {
+    try {
+        const { room_id } = req.query;
+        const reservations = await Booking.find({
+            room_id: new mongoose.Types.ObjectId(room_id),
+            status: { $in: ['PENDING', 'CONFIRMED'] }
+        });
 
-/* =========== START SERVER =========== */
-const PORT = Number(process.env.PORT || 3001);
-app.listen(PORT, () => {
-  console.log(`✅ Server running on http://localhost:${PORT}`);
+        res.json({ reservations });
+    } catch (err) {
+        res.status(500).json({ message: 'เกิดข้อผิดพลาด', error: err.message });
+    }
 });
 
+// --- DELETE /api/my-reservation (ยกเลิกการจอง) ---
+app.delete('/api/my-reservation', verifyToken, async (req, res) => {
+    try {
+        const reservation = await Booking.findOne({
+            student_id: req.user.id,
+            status: { $in: ['PENDING', 'CONFIRMED'] }
+        });
+
+        if (!reservation) {
+            return res.status(404).json({ message: 'ไม่พบการจอง' });
+        }
+
+        // คืนสถานะห้องกลับเป็น ACTIVE
+        await Room.findByIdAndUpdate(reservation.room_id, { status: 'ACTIVE' });
+        await Booking.deleteOne({ _id: reservation._id });
+
+        res.json({ message: 'ยกเลิกการจองสำเร็จ' });
+    } catch (err) {
+        res.status(500).json({ message: 'เกิดข้อผิดพลาด', error: err.message });
+    }
+});
+
+// --- PATCH /api/my-reservation/confirm (จำลองชำระเงิน) ---
+app.patch('/api/my-reservation/confirm', verifyToken, async (req, res) => {
+    try {
+        const reservation = await Booking.findOne({
+            student_id: req.user.id,
+            status: 'PENDING'
+        });
+
+        if (!reservation) {
+            return res.status(404).json({ message: 'ไม่พบการจองที่รอชำระเงิน' });
+        }
+
+        reservation.status = 'CONFIRMED';
+        await reservation.save();
+
+        res.json({
+            success: true,
+            message: 'ชำระเงินสำเร็จ!',
+            reservation: {
+                reserve_id: reservation._id,
+                room_number: reservation.room_number,
+                status: reservation.status
+            }
+        });
+    } catch (err) {
+        res.status(500).json({ message: 'เกิดข้อผิดพลาด', error: err.message });
+    }
+});
+// --- Admin Middleware ---
+const verifyAdmin = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+    if (!token) return res.status(401).json({ message: 'ไม่พบ Token' });
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret123');
+        if (!decoded.isAdmin) return res.status(403).json({ message: 'ไม่มีสิทธิ์ Admin' });
+        req.user = decoded;
+        next();
+    } catch (err) {
+        return res.status(403).json({ message: 'Token ไม่ถูกต้อง' });
+    }
+};
+
+// --- POST /api/admin/login ---
+app.post('/api/admin/login', async (req, res) => {
+    const { username, password } = req.body;
+    if (username === process.env.ADMIN_USER && password === process.env.ADMIN_PASS) {
+        const token = jwt.sign(
+            { username, isAdmin: true },
+            process.env.JWT_SECRET || 'secret123',
+            { expiresIn: '8h' }
+        );
+        return res.json({ token });
+    }
+    res.status(401).json({ message: 'Username หรือ Password ไม่ถูกต้อง' });
+});
+
+// --- GET /api/admin/reservations ---
+app.get('/api/admin/reservations', verifyAdmin, async (req, res) => {
+    try {
+        const reservations = await Booking.find()
+            .sort({ created_at: -1 });
+        res.json(reservations);
+    } catch (err) {
+        res.status(500).json({ message: 'เกิดข้อผิดพลาด', error: err.message });
+    }
+});
+
+// --- PATCH /api/admin/reservations/:id ---
+app.patch('/api/admin/reservations/:id', verifyAdmin, async (req, res) => {
+    try {
+        const { status } = req.body;
+        const reservation = await Booking.findByIdAndUpdate(
+            req.params.id,
+            { status },
+            { new: true }
+        );
+        if (!reservation) return res.status(404).json({ message: 'ไม่พบการจอง' });
+
+        // ถ้ายกเลิก ให้คืนสถานะห้องเป็น ACTIVE
+        if (status === 'CANCELLED') {
+            await Room.findByIdAndUpdate(reservation.room_id, { status: 'ACTIVE' });
+        }
+        res.json({ message: 'อัปเดตสำเร็จ', reservation });
+    } catch (err) {
+        res.status(500).json({ message: 'เกิดข้อผิดพลาด', error: err.message });
+    }
+});
+
+// --- GET /api/admin/students ---
+app.get('/api/admin/students', verifyAdmin, async (req, res) => {
+    try {
+        const students = await Student.find({}, { password_hash: 0 }); // ไม่ส่ง password
+        res.json(students);
+    } catch (err) {
+        res.status(500).json({ message: 'เกิดข้อผิดพลาด', error: err.message });
+    }
+});
+
+// --- DELETE /api/admin/students/:id ---
+app.delete('/api/admin/students/:id', verifyAdmin, async (req, res) => {
+    try {
+        await Student.findByIdAndDelete(req.params.id);
+        res.json({ message: 'ลบนิสิตสำเร็จ' });
+    } catch (err) {
+        res.status(500).json({ message: 'เกิดข้อผิดพลาด', error: err.message });
+    }
+});
+
+// --- GET /api/admin/rooms ---
+app.get('/api/admin/rooms', verifyAdmin, async (req, res) => {
+    try {
+        const rooms = await Room.find()
+            .populate('building_id', 'building_name')
+            .populate('type_id', 'type_name capacity monthly_price cooling_type');
+        res.json(rooms);
+    } catch (err) {
+        res.status(500).json({ message: 'เกิดข้อผิดพลาด', error: err.message });
+    }
+});
+
+// --- PATCH /api/admin/rooms/:id ---
+app.patch('/api/admin/rooms/:id', verifyAdmin, async (req, res) => {
+    try {
+        const room = await Room.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        if (!room) return res.status(404).json({ message: 'ไม่พบห้อง' });
+        res.json({ message: 'อัปเดตห้องสำเร็จ', room });
+    } catch (err) {
+        res.status(500).json({ message: 'เกิดข้อผิดพลาด', error: err.message });
+    }
+});
+
+// --- DELETE /api/admin/rooms/:id ---
+app.delete('/api/admin/rooms/:id', verifyAdmin, async (req, res) => {
+    try {
+        await Room.findByIdAndDelete(req.params.id);
+        res.json({ message: 'ลบห้องสำเร็จ' });
+    } catch (err) {
+        res.status(500).json({ message: 'เกิดข้อผิดพลาด', error: err.message });
+    }
+});
+// --- POST /api/admin/students (เพิ่มนิสิต) ---
+app.post('/api/admin/students', verifyAdmin, async (req, res) => {
+    try {
+        const { student_code, full_name, email, phone, gender, faculty, study_year, username, password } = req.body;
+
+        // เช็คซ้ำ
+        const existing = await Student.findOne({ $or: [{ student_code }, { email }, { username }] });
+        if (existing) {
+            return res.status(400).json({ message: 'รหัสนิสิต, อีเมล หรือ username ซ้ำ' });
+        }
+
+        const password_hash = await bcrypt.hash(password, 10);
+
+        const student = new Student({
+            student_code, full_name, email, phone, gender,
+            faculty, study_year: Number(study_year),
+            username, password_hash, created_at: new Date()
+        });
+        await student.save();
+
+        res.status(201).json({ message: 'เพิ่มนิสิตสำเร็จ', student });
+    } catch (err) {
+        res.status(500).json({ message: 'เกิดข้อผิดพลาด', error: err.message });
+    }
+});
+// --- GET /api/admin/dashboard ---
+app.get('/api/admin/dashboard', verifyAdmin, async (req, res) => {
+    try {
+        const [
+            totalStudents,
+            totalRooms,
+            activeRooms,
+            pendingRes,
+            confirmedRes,
+            cancelledRes,
+            recentRes
+        ] = await Promise.all([
+            Student.countDocuments(),
+            Room.countDocuments(),
+            Room.countDocuments({ status: 'ACTIVE' }),
+            Booking.countDocuments({ status: 'PENDING' }),
+            Booking.countDocuments({ status: 'CONFIRMED' }),
+            Booking.countDocuments({ status: 'CANCELLED' }),
+            Booking.find().sort({ created_at: -1 }).limit(5)
+        ]);
+
+        res.json({
+            totalStudents,
+            totalRooms,
+            activeRooms,
+            occupiedRooms: totalRooms - activeRooms,
+            pendingRes,
+            confirmedRes,
+            cancelledRes,
+            recentRes
+        });
+    } catch (err) {
+        res.status(500).json({ message: 'เกิดข้อผิดพลาด', error: err.message });
+    }
+});
+
+// --- Connect MongoDB ---
+mongoose.connect(process.env.MONGODB_URI)
+    .then(async () => {
+        console.log('MongoDB Connected!');
+        await hashExistingPasswords(); // รันครั้งเดียวอัตโนมัติ
+    })
+    .catch(err => console.error('MongoDB Error:', err));
+
+const PORT = process.env.PORT || 3001;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

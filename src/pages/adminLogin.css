@@ -1,0 +1,192 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap');
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html,
+body,
+#root {
+    height: 100%;
+    width: 100%;
+}
+
+body {
+    font-family: 'DM Sans', 'Kanit', sans-serif;
+    background: #f4f7f4;
+}
+
+/* ── Full-screen centered wrapper ──────────── */
+.al-wrapper {
+    min-height: 100vh;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f4f7f4;
+    padding: 24px;
+}
+
+/* ── Back button: fixed top-left ───────────── */
+.al-back-btn {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 100;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #ffffff;
+    border: 1px solid #d0e4d0;
+    color: #3a5c3a;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: inherit;
+    padding: 8px 16px;
+    border-radius: 10px;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(45, 122, 45, 0.08);
+    transition: all 0.18s ease;
+}
+
+.al-back-btn:hover {
+    background: #e6f4e6;
+    border-color: #2d7a2d;
+    color: #2d7a2d;
+    transform: translateX(-2px);
+}
+
+/* ── Login card ────────────────────────────── */
+.al-card {
+    background: #ffffff;
+    border: 1px solid #d0e4d0;
+    border-radius: 16px;
+    padding: 40px 36px;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: 0 4px 24px rgba(45, 122, 45, 0.08);
+}
+
+/* ── Logo icon ─────────────────────────────── */
+.al-logo {
+    width: 48px;
+    height: 48px;
+    background: #e6f4e6;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    margin-bottom: 20px;
+}
+
+/* ── Title & desc ──────────────────────────── */
+.al-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: #1a2e1a;
+    letter-spacing: -0.3px;
+    margin-bottom: 6px;
+}
+
+.al-desc {
+    font-size: 14px;
+    color: #6b886b;
+    margin-bottom: 28px;
+    line-height: 1.5;
+}
+
+/* ── Form ──────────────────────────────────── */
+.al-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.al-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.al-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #3a5c3a;
+}
+
+.al-input {
+    padding: 11px 14px;
+    border: 1.5px solid #d0e4d0;
+    border-radius: 10px;
+    font-size: 14px;
+    font-family: inherit;
+    color: #1a2e1a;
+    background: #f4f7f4;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+}
+
+.al-input:focus {
+    border-color: #2d7a2d;
+    box-shadow: 0 0 0 3px rgba(45, 122, 45, 0.1);
+    background: #ffffff;
+}
+
+.al-input::placeholder {
+    color: #6b886b;
+}
+
+.al-input:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+/* ── Error ─────────────────────────────────── */
+.al-error {
+    padding: 10px 14px;
+    background: #ffebee;
+    border: 1px solid #f5b8b5;
+    border-radius: 8px;
+    font-size: 13px;
+    color: #c62828;
+}
+
+/* ── Submit button ─────────────────────────── */
+.al-btn {
+    margin-top: 4px;
+    padding: 12px;
+    background: #2d7a2d;
+    color: #ffffff;
+    border: none;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.18s, transform 0.1s;
+}
+
+.al-btn:hover:not(:disabled) {
+    background: #1e5c1e;
+}
+
+.al-btn:active:not(:disabled) {
+    transform: scale(0.99);
+}
+
+.al-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+/* ── Mobile ────────────────────────────────── */
+@media (max-width: 480px) {
+    .al-card {
+        padding: 28px 20px;
+    }
+}

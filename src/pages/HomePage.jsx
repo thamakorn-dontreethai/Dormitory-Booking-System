@@ -3,7 +3,7 @@ import axios from 'axios';
 import './HomePage.css';
 import { Link } from 'react-router-dom';
 
-const API_URL = 'http://localhost:3001';
+const API_URL = import.meta.env.VITE_API_URL || 'http://10.64.41.236:3001';
 
 export default function HomePage() {
   const [stats, setStats] = useState([]);
@@ -35,22 +35,27 @@ export default function HomePage() {
                 <i className="fa-solid fa-bed" /> จองห้องพัก
               </Link>
             </li>
+            <li>
+              <Link to="/Admin">
+                <i className="fa-solid fa-user-gear"></i> ผู้ดูแลระบบ
+              </Link>
+            </li>
           </ul>
 
           <div className="fee-section">
             <h4><i className="fa-solid fa-hand-holding-dollar"></i> รายละเอียดค่าหอ</h4>
-            <p>ห้อง 2 คน (แอร์) <span>11000.00/เทอม</span></p>
-            <p>ห้อง 2 คน (พัดลม) <span>9000.00/เทอม</span></p>
-            <p>ห้อง 4 คน (แอร์) <span>5500.00/เทอม</span></p>
-            <p>ห้อง 4 คน (พัดลม) <span>4500.00/เทอม</span></p>
+            <p>ห้อง 2 คน (แอร์) <span>4000.00/เทอม</span></p>
+            <p>ห้อง 2 คน (พัดลม) <span>3000.00/เทอม</span></p>
+            <p>ห้อง 4 คน (แอร์) <span>2500.00/เทอม</span></p>
+            <p>ห้อง 4 คน (พัดลม) <span>1500.00/เทอม</span></p>
           </div>
         </nav>
 
         {/* 2) เฮดเดอร์สีม่วง (อยู่ข้างเมนูซ้าย) */}
         <header className="main-header">
           <div>
-            <h1><i className="fa-solid fa-pumpkin"></i> Kasetsart University Sriracha Campus</h1>
-            <span className="subtitle">ระบบจองหอพักนิสิต (👻)</span>
+            <h1><i className="fa-solid fa-pumpkin"></i> Dormitory Student System</h1>
+            <span className="subtitle">ระบบจองหอพักนิสิต</span>
           </div>
         </header>
 
@@ -70,7 +75,7 @@ export default function HomePage() {
             <p>ระบบจะเปิดให้นิสิตชั้นปีที่ 1-3 จองห้องพักได้ในวันที่ 15 พฤศจิกายน 2568 เวลา 9:00 น. เป็นต้นไป...</p>
           </div>
 
-          
+
         </main>
       </div>
     </div>

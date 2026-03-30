@@ -1,0 +1,550 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+:root {
+    --green-50: #f0fdf4;
+    --green-100: #dcfce7;
+    --green-200: #bbf7d0;
+    --green-400: #4ade80;
+    --green-500: #22c55e;
+    --green-600: #16a34a;
+    --green-700: #15803d;
+    --gray-50: #f9fafb;
+    --gray-100: #f3f4f6;
+    --gray-200: #e5e7eb;
+    --gray-300: #d1d5db;
+    --gray-400: #9ca3af;
+    --gray-500: #6b7280;
+    --gray-600: #4b5563;
+    --gray-900: #111827;
+}
+
+body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--gray-50);
+    color: var(--gray-900);
+}
+
+/* Header */
+.ad-header {
+    background: #fff;
+    border-bottom: 1px solid var(--gray-200);
+    padding: 0 32px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.ad-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.ad-logo-icon {
+    width: 32px;
+    height: 32px;
+    background: var(--green-600);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+}
+
+.ad-logo-text {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--gray-900);
+    letter-spacing: -0.3px;
+}
+
+.ad-logout-btn {
+    padding: 7px 16px;
+    background: #fff;
+    color: #dc2626;
+    border: 1.5px solid #fecaca;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.ad-logout-btn:hover {
+    background: #fef2f2;
+}
+
+/* Tabs */
+.ad-tabs {
+    background: #fff;
+    border-bottom: 1px solid var(--gray-200);
+    padding: 0 32px;
+    display: flex;
+    gap: 0;
+}
+
+.ad-tab {
+    padding: 14px 20px;
+    border: none;
+    border-bottom: 2px solid transparent;
+    background: none;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: 'DM Sans', sans-serif;
+    color: var(--gray-400);
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s;
+    margin-bottom: -1px;
+}
+
+.ad-tab:hover {
+    color: var(--gray-600);
+}
+
+.ad-tab.active {
+    color: var(--green-600);
+    border-bottom-color: var(--green-600);
+}
+
+/* Content */
+.ad-content {
+    padding: 28px 32px;
+    max-width: 1400px;
+}
+
+/* Section header */
+.ad-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.ad-section-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--gray-900);
+    letter-spacing: -0.3px;
+}
+
+.ad-count-badge {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--gray-500);
+    background: var(--gray-100);
+    padding: 3px 10px;
+    border-radius: 99px;
+    margin-left: 8px;
+}
+
+/* Add button */
+.ad-add-btn {
+    padding: 9px 18px;
+    background: var(--green-600);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    transition: background 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.ad-add-btn:hover {
+    background: var(--green-700);
+}
+
+.ad-add-btn.close {
+    background: var(--gray-100);
+    color: var(--gray-600);
+}
+
+.ad-add-btn.close:hover {
+    background: var(--gray-200);
+}
+
+/* Table */
+.ad-table-wrap {
+    overflow-x: auto;
+    border-radius: 12px;
+    border: 1px solid var(--gray-200);
+}
+
+.ad-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+}
+
+.ad-table thead tr {
+    background: var(--gray-50);
+    border-bottom: 1px solid var(--gray-200);
+}
+
+.ad-table th {
+    padding: 11px 16px;
+    text-align: left;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--gray-500);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+
+.ad-table td {
+    padding: 13px 16px;
+    font-size: 14px;
+    color: var(--gray-600);
+    border-bottom: 1px solid var(--gray-100);
+}
+
+.ad-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.ad-table tbody tr:hover {
+    background: var(--gray-50);
+}
+
+.ad-table strong {
+    color: var(--gray-900);
+    font-weight: 500;
+}
+
+/* Status pills */
+.ad-pill {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 99px;
+    font-size: 12px;
+    font-weight: 600;
+    font-family: 'DM Mono', monospace;
+}
+
+.ad-pill.pending {
+    background: #fef9c3;
+    color: #854d0e;
+}
+
+.ad-pill.confirmed {
+    background: var(--green-100);
+    color: var(--green-700);
+}
+
+.ad-pill.cancelled {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.ad-pill.completed {
+    background: #ede9fe;
+    color: #5b21b6;
+}
+
+/* Action buttons */
+.ad-btn {
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    transition: opacity 0.15s;
+    border: none;
+}
+
+.ad-btn:hover {
+    opacity: 0.8;
+}
+
+.ad-btn.approve {
+    background: var(--green-100);
+    color: var(--green-700);
+}
+
+.ad-btn.cancel {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.ad-btn.delete {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+/* Select in table */
+.ad-select {
+    padding: 5px 10px;
+    border: 1px solid var(--gray-200);
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: 'DM Sans', sans-serif;
+    color: var(--gray-600);
+    background: #fff;
+    cursor: pointer;
+}
+
+/* Add form */
+.ad-form-card {
+    background: #fff;
+    border: 1px solid var(--gray-200);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 20px;
+}
+
+.ad-form-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--gray-900);
+    margin-bottom: 20px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--gray-100);
+}
+
+.ad-form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+}
+
+.ad-form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.ad-form-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--gray-500);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.ad-form-input,
+.ad-form-select {
+    padding: 9px 12px;
+    border: 1.5px solid var(--gray-200);
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: 'DM Sans', sans-serif;
+    color: var(--gray-900);
+    background: var(--gray-50);
+    transition: border-color 0.2s, box-shadow 0.2s;
+    outline: none;
+}
+
+.ad-form-input:focus,
+.ad-form-select:focus {
+    border-color: var(--green-500);
+    box-shadow: 0 0 0 3px var(--green-100);
+    background: #fff;
+}
+
+.ad-form-error {
+    padding: 9px 12px;
+    background: #fef2f2;
+    border-radius: 8px;
+    font-size: 13px;
+    color: #dc2626;
+    margin-top: 4px;
+}
+
+.ad-form-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 18px;
+}
+
+.ad-save-btn {
+    padding: 9px 22px;
+    background: var(--green-600);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.ad-save-btn:hover {
+    background: var(--green-700);
+}
+
+.ad-save-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.ad-cancel-btn {
+    padding: 9px 22px;
+    background: var(--gray-100);
+    color: var(--gray-600);
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.ad-cancel-btn:hover {
+    background: var(--gray-200);
+}
+
+/* Dashboard */
+.ad-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.ad-stat-card {
+    background: #fff;
+    border: 1px solid var(--gray-200);
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.ad-stat-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+}
+
+.ad-stat-value {
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: -1px;
+    font-family: 'DM Mono', monospace;
+}
+
+.ad-stat-label {
+    font-size: 13px;
+    color: var(--gray-400);
+}
+
+.ad-charts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.ad-chart-card {
+    background: #fff;
+    border: 1px solid var(--gray-200);
+    border-radius: 12px;
+    padding: 24px;
+}
+
+.ad-chart-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--gray-900);
+    margin-bottom: 20px;
+}
+
+.ad-bar-row {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.ad-bar-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.ad-bar-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    color: var(--gray-500);
+}
+
+.ad-bar-track {
+    background: var(--gray-100);
+    border-radius: 99px;
+    height: 7px;
+    overflow: hidden;
+}
+
+.ad-bar-fill {
+    height: 100%;
+    border-radius: 99px;
+    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ad-occupancy {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    height: 130px;
+    gap: 4px;
+}
+
+.ad-occupancy-pct {
+    font-size: 52px;
+    font-weight: 700;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: -2px;
+    line-height: 1;
+}
+
+.ad-occupancy-sub {
+    font-size: 13px;
+    color: var(--gray-400);
+}
+
+.ad-recent-card {
+    background: #fff;
+    border: 1px solid var(--gray-200);
+    border-radius: 12px;
+    padding: 24px;
+}
+
+.ad-recent-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--gray-900);
+    margin-bottom: 16px;
+}
+
+/* Loading */
+.ad-loading {
+    padding: 48px;
+    text-align: center;
+    color: var(--gray-400);
+    font-size: 14px;
+}

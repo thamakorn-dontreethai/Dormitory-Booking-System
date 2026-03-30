@@ -1,390 +1,346 @@
-/* src/pages/BookingPage.css (ฉบับปรับปรุง) */
+/* ============================================
+   GREEN & WHITE MINIMAL — Room Booking UI
+   Font: Kanit (keep your existing import)
+   ============================================ */
 
 :root {
-  --bg: #0c0c0f;
-  --card: #141418;
-  --card-header: #1f1f25;
-  --border: #2a2a33;
-  --fg: #e9e9ef;
-  --muted: #a6a6b3;
-  --primary: #ffb224;
-  --accent: #5a2d82;
-  --accent2: #2f1345;
-  --ok: #2ecc71;
-  --ok-bg: #19543a;
-  --ok-fg: #c9f7da;
-  --bad: #ff5d5d;
-  --bad-bg: #4c2020;
-  --bad-fg: #ffd3d3;
-  --access-bg: #1a4a6b; 
-  --access-fg: #dbe7ff;
-  
-  /* [ลบ] ค่าคงที่สำหรับ Sticky */
+  --bg: #f4f7f4;
+  --card: #ffffff;
+  --card-header: #f0f5f0;
+  --border: #d0e4d0;
+  --fg: #1a2e1a;
+  --muted: #6b886b;
+  --primary: #2d7a2d;
+  --primary-dk: #1e5c1e;
+  --primary-lt: #e6f4e6;
+  --ok: #2e7d32;
+  --ok-bg: #e8f5e9;
+  --ok-fg: #1b5e20;
+  --bad: #c62828;
+  --bad-bg: #ffebee;
+  --bad-fg: #7f0000;
+  --access-bg: #e3f0ff;
+  --access-fg: #0d3a6b;
 }
-html, body { 
-  background: var(--bg); 
-  color: var(--fg); 
-font-family: 'Kanit', sans-serif;
-  /* [ลบ] scroll-padding-top */
-}
-/* ------------------------------------------- */
 
-.bk-wrapper {
-max-width: 1500px;
-margin: 0 auto;
-padding: 24px 16px 40px;
-position: relative;
+html,
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: 'Kanit', sans-serif;
 }
-.bk-header{
- position: sticky;
- background: linear-gradient(100deg, var(--accent2), var(--accent));
- border: 1px solid #6d35a3;
- padding: 20px 24px;
- display: flex;
- align-items: center;
- justify-content: space-between;
- gap: 16px;
- margin-bottom: 24px;
-  /* [ลบ] position: sticky และคุณสมบัติที่เกี่ยวข้อง */
- box-shadow: 0 8px 24px rgba(0,0,0,.35);
-}
-.bk-header .title h1 { font-size: 26px; margin: 0 0 4px 0; color: var(--primary); }
-.bk-header .subtitle { font-size: 14px; color: #e7dbffcc; }
 
+/* ── Wrapper ───────────────────────────────── */
 .bk-wrapper {
- max-width: 1200px;
- margin: 0 auto;
- padding: 24px 16px 40px;
- position: relative;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 16px 48px;
 }
-/* --- [แก้ไข] Userbox Layout --- */
-.userbox { 
-text-align: right; 
-display: flex;
-align-items: center;
-gap: 10px;
-flex-shrink: 0;
+
+/* ── Header ────────────────────────────────── */
+.bk-header {
+  background: var(--primary);
+  border-radius: 0;
+  /* ไม่มี radius — ชิดขอบทุกด้าน */
+  padding: 16px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 12px rgba(45, 122, 45, 0.22);
+  /* ยืดออกเต็มหน้าจอ ข้ามขอบ wrapper */
+  margin-left: calc(-1 * ((100vw - 100%) / 2 + 16px));
+  margin-right: calc(-1 * ((100vw - 100%) / 2 + 16px));
+  padding-left: max(28px, calc((100vw - 1200px) / 2 + 28px));
+  padding-right: max(28px, calc((100vw - 1200px) / 2 + 28px));
+}
+
+.bk-header .title h1 {
+  font-size: 24px;
+  margin: 0 0 3px;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.bk-header .subtitle {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+/* ── Userbox ───────────────────────────────── */
+.userbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   cursor: pointer;
-  padding: 8px;
-  border-radius: 8px;
-  transition: background-color 0.2s ease;
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  transition: background 0.2s ease;
+  flex-shrink: 0;
 }
+
 .userbox:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.26);
 }
-.userbox .name { 
-font-weight: 700;
-white-space: nowrap;
-}
-.badge { 
- margin-left: 0;
- display: inline-flex; 
- align-items: center; 
- gap: 6px;
- font-size:12px; 
- padding:4px 8px; 
- border-radius:999px;
- border:1px solid #6d35a3; 
- background:#ffffff14; 
-}
-.badge.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-/* ------------------------------- */
 
-/* Card */
+.userbox .name {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  color: #fff;
+}
+
+.badge.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* ── Card ──────────────────────────────────── */
 .card {
- background: var(--card);
- border: 1px solid var(--border);
- border-radius: 18px;
- overflow: hidden; /* [แก้ไข] กลับเป็น hidden */
- margin-top: 4px;
- box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 2px 14px rgba(45, 122, 45, 0.06);
+  margin-top: 4px;
 }
-.card-body { padding: 24px; }
 
-/* Toolbar (ไม่ Sticky แล้ว) */
+.card-body {
+  padding: 24px;
+}
+
+/* ── Toolbar ───────────────────────────────── */
 .bk-toolbar {
- display: flex;
- flex-direction: column;
- gap: 8px;
- border-bottom: 1px solid var(--border);
- padding: 0 0 20px; /* [แก้ไข] ปรับ Padding */
- margin: 0 0 20px;
-  /* [ลบ] position: sticky และคุณสมบัติที่เกี่ยวข้องทั้งหมด */
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 20px;
+  margin-bottom: 20px;
 }
+
 .bk-toolbar label {
- font-size: 14px; font-weight: 600; color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
 }
+
 .bk-select {
- background: #1f1f25;
- color: var(--fg);
- border: 1px solid var(--border);
- padding: 12px 16px;
- border-radius: 10px;
- font-size: 16px;
- width: 100%;
- max-width: 400px;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  padding: 11px 14px;
+  border-radius: 10px;
+  font-size: 15px;
+  width: 100%;
+  max-width: 400px;
+  outline: none;
+  transition: border-color 0.2s ease;
+  font-family: 'Kanit', sans-serif;
 }
 
-/* Pills */
+.bk-select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(45, 122, 45, 0.1);
+}
+
+/* ── Prompt (empty state) ──────────────────── */
+.bk-prompt {
+  text-align: center;
+  padding: 48px 20px;
+  color: var(--muted);
+}
+
+.bk-prompt h3 {
+  font-size: 18px;
+  margin: 0 0 8px;
+  color: var(--fg);
+}
+
+/* ── Cooling Pills ─────────────────────────── */
 .cooling-pill {
- display: inline-flex; align-items: center; gap: 6px;
- font-size: 12px; padding: 5px 10px; border-radius: 999px; font-weight: 600;
- border: 1px solid transparent;
- box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-weight: 600;
+  border: 1px solid transparent;
 }
-.cooling-pill.ac { background-color: var(--access-bg); color: var(--access-fg); }
-.cooling-pill.fan { background-color: #3e4049; color: #e0e1e6; }
 
-/* Prompt */
-.bk-prompt { text-align: center; padding: 40px 20px; color: var(--muted); }
-.bk-prompt h3 { font-size: 18px; margin: 0 0 8px 0; color: var(--fg); }
+.cooling-pill.ac {
+  background: var(--access-bg);
+  color: var(--access-fg);
+  border-color: #bdd4f0;
+}
 
-/* Table */
-.overflow-x-auto { overflow-x: auto; }
-.bk-table { width: 100%; border-collapse: collapse; }
-.bk-table th, .bk-table td { padding: 14px 16px; text-align: left; vertical-align: middle; }
-.bk-table thead { background-color: var(--card-header); }
+.cooling-pill.fan {
+  background: #f1f1f1;
+  color: #555;
+  border-color: #ddd;
+}
+
+/* ── Table ─────────────────────────────────── */
+.overflow-x-auto {
+  overflow-x: auto;
+}
+
+.bk-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.bk-table th,
+.bk-table td {
+  padding: 13px 16px;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.bk-table thead {
+  background: var(--card-header);
+}
+
 .bk-table th {
- font-size: 13px; font-weight: 600; color: var(--muted);
- text-transform: uppercase; letter-spacing: .5px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
-/* (ลบ) หัวตารางแบบ Sticky */
+
 .bk-table thead th {
- position: static; /* [แก้ไข] กลับเป็นค่าปกติ */
- background: #1f1f25;
+  position: static;
+  background: var(--card-header);
 }
-.bk-table tbody tr { border-bottom: 1px solid var(--border); transition: background-color .2s ease; }
-.bk-table tbody tr:last-child { border-bottom: none; }
-.bk-table tbody tr:hover { background-color: #1f1f25; }
+
+.bk-table tbody tr {
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s ease;
+}
+
+.bk-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.bk-table tbody tr:hover {
+  background: var(--primary-lt);
+}
 
 .bk-table td:first-child strong {
- color: var(--primary);
- font-size: 1.1rem;
+  color: var(--primary);
+  font-size: 1.05rem;
 }
 
-/* แถวของห้องฉัน */
-.my-room-row { 
- background-color: var(--accent2) !important;
- border-left: 4px solid var(--primary);
-}
-.status-my-room { 
- background: var(--primary); 
- color: #1a1208; 
- box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+/* ── My Room Row ───────────────────────────── */
+.my-room-row {
+  background: var(--primary-lt) !important;
+  border-left: 3px solid var(--primary) !important;
 }
 
-/* Status pills */
-.status-pill { 
- display: inline-flex; align-items: center; gap: 6px; 
- font-size: 12px; padding: 6px 10px; border-radius: 999px; font-weight: 700;
- box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+/* ── Status Pills ──────────────────────────── */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-weight: 700;
 }
-.status-ok { background:var(--ok-bg); color:var(--ok-fg); }
-.status-full { background:var(--bad-bg); color:var(--bad-fg); }
-.status-access { background:var(--access-bg); color:var(--access-fg); }
 
-/* Buttons */
-.actions { display: flex; gap: 8px; }
-.btn { 
- padding: 8px 12px; border-radius: 8px; font-weight: 700; 
- border: 1px solid var(--border); background: #2a2a33; color: var(--fg); 
- cursor: pointer; 
- box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
- transition: all .2s ease; 
+.status-ok {
+  background: var(--ok-bg);
+  color: var(--ok-fg);
 }
-.btn:hover:not(:disabled) { 
- filter: brightness(1.1);
- transform: translateY(-2px);
- box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+
+.status-full {
+  background: var(--bad-bg);
+  color: var(--bad-fg);
 }
+
+.status-access {
+  background: var(--access-bg);
+  color: var(--access-fg);
+}
+
+.status-my-room {
+  background: var(--primary);
+  color: #fff;
+}
+
+.status-pending {
+  background: var(--bad-bg);
+  color: var(--bad-fg);
+  font-weight: 700;
+}
+
+/* ── Buttons ───────────────────────────────── */
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn {
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 13px;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--fg);
+  cursor: pointer;
+  transition: all 0.18s ease;
+  font-family: 'Kanit', sans-serif;
+}
+
+.btn:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-lt);
+  transform: translateY(-1px);
+}
+
 .btn:active:not(:disabled) {
- transform: translateY(0);
- box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-}
-.btn-primary { background: var(--primary); color:#1b1407; border-color:#d99a00; }
-.btn[disabled] { 
- opacity:.5; 
- cursor:not-allowed; 
- filter: grayscale(80%); 
- transform: none;
- box-shadow: none;
+  transform: translateY(0);
 }
 
-/* --- [เพิ่มใหม่] สไตล์สำหรับ Modal โปรไฟล์ --- */
-.modal-overlay {
- position: fixed;
- top: 0;
- left: 0;
- right: 0;
- bottom: 0;
- background: rgba(0, 0, 0, 0.7);
- backdrop-filter: blur(5px);
- z-index: 1000;
- display: flex;
- justify-content: center;
- align-items: center;
- padding: 20px;
+.btn-primary {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary-dk);
 }
 
-.modal-content {
- background: var(--card);
- border: 1px solid var(--border);
- border-radius: 12px;
- box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
- width: 100%;
- max-width: 500px;
- padding: 24px;
- animation: modalFadeIn 0.3s ease;
- box-sizing: border-box; /* เพิ่ม */
+.btn-primary:hover:not(:disabled) {
+  background: var(--primary-dk);
+  color: #fff;
+  border-color: var(--primary-dk);
 }
 
-@keyframes modalFadeIn {
- from { opacity: 0; transform: scale(0.95); }
- to { opacity: 1; transform: scale(1); }
+.btn[disabled] {
+  opacity: 0.42;
+  cursor: not-allowed;
+  filter: grayscale(60%);
+  transform: none;
 }
 
-.modal-header {
- display: flex;
- justify-content: space-between;
- align-items: center;
- border-bottom: 1px solid var(--border);
- padding-bottom: 16px;
- margin-bottom: 20px;
-}
-
-.modal-header h2 {
- margin: 0;
- color: var(--primary);
- font-size: 1.3rem;
-}
-
-.modal-close-btn {
- all: unset;
- font-size: 2rem;
- color: var(--muted);
- cursor: pointer;
- line-height: 1;
- transition: transform 0.2s ease, color 0.2s ease;
-}
-.modal-close-btn:hover {
- color: var(--fg);
- transform: rotate(90deg);
-}
-
-.modal-body h3 {
- color: var(--muted);
- font-size: 0.9rem;
- text-transform: uppercase;
- letter-spacing: 0.5px;
- margin-bottom: 10px;
- margin-top: 20px;
-}
-.modal-body h3:first-child {
- margin-top: 0;
-}
-
-.modal-details {
- list-style-type: none;
- padding-left: 0;
- margin: 0 0 10px 0;
- background: var(--card-header);
- border: 1px solid var(--border);
- border-radius: 8px;
- padding: 15px;
-}
-/* [แก้ไข] Syntax Error ที่นี่ */
-.modal-details li {
- margin-bottom: 10px;
- display: flex;
- justify-content: space-between;
- font-size: 0.95rem;
-}
-.modal-details li:last-child {
- margin-bottom: 0;
-}
-.modal-details li strong {
- color: var(--muted);
- margin-right: 15px;
- font-weight: 500;
-}
-.modal-details li span {
- font-weight: 600;
- color: var(--fg);
-}
-
-/* สไตล์สำหรับป้ายสถานะใน Modal */
-.status-pill.status-pending {
- background: var(--bad-bg);
- color: var(--bad-fg);
- font-weight: 700;
- box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-}
-
-.no-booking {
- color: var(--muted);
- text-align: center;
- padding: 20px 0;
- font-style: italic;
-}
-
-/* ปุ่ม cf-button ที่ใช้ใน Modal */
-.cf-button {
- border: none;
- padding: 12px 25px;
- border-radius: 8px;
- cursor: pointer;
- font-size: 1rem;
- font-weight: 600;
- transition: all 0.2s ease;
- box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-.cf-button:hover:not(:disabled) {
- transform: translateY(-2px);
- box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
-}
-.cf-button:disabled {
- opacity: 0.6;
- cursor: not-allowed;
-}
-
-.reservation-info .confirm-button {
- width: 100%;
- margin-top: 10px;
- padding: 12px;
- font-size: 1rem;
- background-color: var(--ok-bg);
- border: 1px solid var(--ok);
- color: var(--ok-fg);
-}
-.reservation-info .confirm-button:hover:not(:disabled) {
- background-color: var(--ok);
- color: #fff;
-}
-
-
-.modal-footer {
- display: flex;
- justify-content: flex-end;
- gap: 15px;
- margin-top: 25px;
- padding-top: 20px;
- border-top: 1px solid var(--border);
-}
-
-.modal-footer .cf-button {
- width: auto;
- padding: 10px 20px;
-}
-.logout-button {
- background-color: var(--bad-bg);
- color: var(--bad-fg);
- border: 1px solid var(--bad);
-}
-.logout-button:hover {
- background-color: var(--bad);
- color: #fff;
-}
-/* --- Pagination --- */
+/* ── Pagination ────────────────────────────── */
 .pagination {
   display: flex;
   justify-content: center;
@@ -394,28 +350,430 @@ white-space: nowrap;
 }
 
 .page-btn {
-  background: var(--card-header);
+  background: #fff;
   color: var(--fg);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 8px 14px;
+  padding: 8px 16px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: 'Kanit', sans-serif;
+  transition: all 0.18s ease;
 }
 
 .page-btn:hover:not(:disabled) {
   background: var(--primary);
-  color: #1b1407;
+  color: #fff;
+  border-color: var(--primary);
 }
 
 .page-btn:disabled {
-  opacity: 0.4;
+  opacity: 0.38;
   cursor: not-allowed;
 }
 
 .page-info {
+  font-size: 13px;
   font-weight: 600;
   color: var(--muted);
 }
 
+/* ── Modal ─────────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 45, 20, 0.45);
+  backdrop-filter: blur(5px);
+  z-index: 1000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
 
+.modal-content {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 12px 40px rgba(45, 122, 45, 0.12);
+  width: 100%;
+  max-width: 500px;
+  padding: 28px;
+  box-sizing: border-box;
+  animation: modalIn 0.25s ease;
+}
+
+@keyframes modalIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 16px;
+  margin-bottom: 20px;
+}
+
+.modal-header h2 {
+  margin: 0;
+  color: var(--primary);
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.modal-close-btn {
+  all: unset;
+  font-size: 1.8rem;
+  color: var(--muted);
+  cursor: pointer;
+  line-height: 1;
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.modal-close-btn:hover {
+  color: var(--fg);
+  transform: rotate(90deg);
+}
+
+.modal-body h3 {
+  color: var(--muted);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 10px;
+  margin-top: 20px;
+  font-weight: 600;
+}
+
+.modal-body h3:first-child {
+  margin-top: 0;
+}
+
+.modal-details {
+  list-style: none;
+  padding: 16px;
+  margin: 0 0 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.modal-details li {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+
+.modal-details li:last-child {
+  margin-bottom: 0;
+}
+
+.modal-details li strong {
+  color: var(--muted);
+  font-weight: 500;
+  margin-right: 14px;
+}
+
+.modal-details li span {
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.no-booking {
+  color: var(--muted);
+  text-align: center;
+  padding: 20px 0;
+  font-style: italic;
+}
+
+/* ── cf-button (modal actions) ─────────────── */
+.cf-button {
+  border: none;
+  padding: 11px 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: 'Kanit', sans-serif;
+  transition: all 0.18s ease;
+}
+
+.cf-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.07);
+}
+
+.cf-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.reservation-info .confirm-button {
+  width: 100%;
+  margin-top: 10px;
+  padding: 12px;
+  font-size: 1rem;
+  background: var(--ok-bg);
+  border: 1px solid var(--ok);
+  color: var(--ok-fg);
+  border-radius: 8px;
+}
+
+.reservation-info .confirm-button:hover:not(:disabled) {
+  background: var(--ok);
+  color: #fff;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.modal-footer .cf-button {
+  width: auto;
+  padding: 10px 22px;
+}
+
+.logout-button {
+  background: var(--bad-bg);
+  color: var(--bad-fg);
+  border: 1px solid #f5b8b5;
+}
+
+.logout-button:hover {
+  background: var(--bad);
+  color: #fff;
+}
+
+
+/* ============================================
+   ROOM GRID — Modern Card Layout
+   เพิ่มต่อท้าย BookingPage.css / style.css
+   ============================================ */
+
+.room-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 16px;
+  padding: 4px 0 8px;
+}
+
+/* ── Single card ───────────────────────────── */
+.room-card {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px 18px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.room-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(45, 122, 45, 0.11);
+  border-color: var(--primary);
+}
+
+.room-card.my-room {
+  border-color: var(--primary);
+  border-left: 4px solid var(--primary);
+  background: var(--primary-lt);
+}
+
+.room-card.is-full {
+  opacity: 0.58;
+  cursor: not-allowed;
+}
+
+.room-card.is-full:hover {
+  transform: none;
+  box-shadow: none;
+  border-color: var(--border);
+}
+
+/* ── Top row ───────────────────────────────── */
+.room-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.room-number {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--primary);
+  letter-spacing: -0.5px;
+  line-height: 1;
+}
+
+/* ── Status badges ─────────────────────────── */
+.room-status {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  letter-spacing: 0.2px;
+}
+
+.room-status.available {
+  background: var(--ok-bg);
+  color: var(--ok-fg);
+}
+
+.room-status.full {
+  background: var(--bad-bg);
+  color: var(--bad-fg);
+}
+
+.room-status.mine {
+  background: var(--primary);
+  color: #fff;
+}
+
+.room-status.access {
+  background: var(--access-bg);
+  color: var(--access-fg);
+}
+
+/* ── Room type ─────────────────────────────── */
+.room-type {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg);
+  margin-top: -4px;
+}
+
+/* ── Meta row ──────────────────────────────── */
+.room-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* ── Occupancy bar ─────────────────────────── */
+.room-occupancy {
+  flex: 1;
+  min-width: 90px;
+}
+
+.occupancy-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 5px;
+}
+
+.occupancy-bar {
+  height: 5px;
+  background: var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.occupancy-fill {
+  height: 100%;
+  background: var(--primary);
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+
+.occupancy-fill.full {
+  background: var(--bad);
+}
+
+/* ── Book button ───────────────────────────── */
+.room-card-footer {
+  margin-top: 2px;
+}
+
+.room-book-btn {
+  width: 100%;
+  padding: 10px;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: 'Kanit', sans-serif;
+  cursor: pointer;
+  transition: background 0.18s, transform 0.1s;
+  letter-spacing: 0.2px;
+}
+
+.room-book-btn:hover:not(:disabled) {
+  background: var(--primary-dk);
+}
+
+.room-book-btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.room-book-btn:disabled {
+  background: var(--border);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+.room-book-btn.manage {
+  background: var(--primary-lt);
+  color: var(--primary-dk);
+  border: 1.5px solid var(--primary);
+}
+
+.room-book-btn.manage:hover {
+  background: var(--primary);
+  color: #fff;
+}
+
+/* ── Empty state ───────────────────────────── */
+.room-grid-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 48px 20px;
+  color: var(--muted);
+}
+
+.room-grid-empty p {
+  font-size: 15px;
+  margin-top: 8px;
+}
+
+/* ── Responsive ────────────────────────────── */
+@media (max-width: 640px) {
+  .room-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 400px) {
+  .room-grid {
+    grid-template-columns: 1fr;
+  }
+}
