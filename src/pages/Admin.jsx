@@ -6,7 +6,7 @@ import './Admin.css';
 
 const API_URL = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:3001`;
 
-const TABS = ['Dashboard', 'การจอง', 'ห้องพัก', 'นิสิต', 'รายงาน'];
+const TABS = ['Dashboard', 'การจอง', 'ห้องพัก', 'นิสิต'];
 
 export default function Admin() {
     const navigate = useNavigate();

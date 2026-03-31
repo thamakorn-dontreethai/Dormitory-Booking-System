@@ -41,7 +41,7 @@ function ProfileModal({ user, reservation, isOpen, onClose, onSimulatePayment, o
               </ul>
               {reservation.status === 'PENDING' && (
                 <button className="cf-button confirm-button" onClick={handlePaymentClick} disabled={isProcessing}>
-                  {isProcessing ? 'กำลังดำเนินการ...' : 'จำลองการชำระเงิน'}
+                  {isProcessing ? 'กำลังดำเนินการ...' : 'ชำระเงิน'}
                 </button>
               )}
             </div>

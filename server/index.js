@@ -9,6 +9,7 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 import Building from './models/Building.js';
 import RoomType from './models/RoomType.js';
+import Admin from './models/Admin.js';
 
 dotenv.config();
 const app = express();
@@ -378,15 +379,27 @@ const verifyAdmin = (req, res, next) => {
 // --- POST /api/admin/login ---
 app.post('/api/admin/login', async (req, res) => {
     const { username, password } = req.body;
-    if (username === process.env.ADMIN_USER && password === process.env.ADMIN_PASS) {
+    if (!username || !password) {
+        return res.status(400).json({ message: 'กรุณากรอก username และ password' });
+    }
+    try {
+        const admin = await Admin.findOne({ username });
+        if (!admin) {
+            return res.status(401).json({ message: 'Username หรือ Password ไม่ถูกต้อง' });
+        }
+        const isMatch = await bcrypt.compare(password, admin.password);
+        if (!isMatch) {
+            return res.status(401).json({ message: 'Username หรือ Password ไม่ถูกต้อง' });
+        }
         const token = jwt.sign(
-            { username, isAdmin: true },
+            { username: admin.username, isAdmin: true, role: admin.role },
             process.env.JWT_SECRET || 'secret123',
             { expiresIn: '8h' }
         );
         return res.json({ token });
+    } catch (err) {
+        res.status(500).json({ message: 'เกิดข้อผิดพลาดที่ Server', error: err.message });
     }
-    res.status(401).json({ message: 'Username หรือ Password ไม่ถูกต้อง' });
 });
 
 // --- GET /api/admin/reservations ---
@@ -534,11 +547,26 @@ app.get('/api/admin/dashboard', verifyAdmin, async (req, res) => {
     }
 });
 
+// --- Sync admin จาก .env ไปยัง MongoDB ---
+const syncAdminFromEnv = async () => {
+    const username = process.env.ADMIN_USER?.trim();
+    const password = process.env.ADMIN_PASS?.trim();
+    if (!username || !password) return;
+    const hashed = await bcrypt.hash(password, 10);
+    await Admin.findOneAndUpdate(
+        { username },
+        { username, password: hashed, role: 'admin' },
+        { upsert: true }
+    );
+    console.log(`✅ Admin synced: ${username}`);
+};
+
 // --- Connect MongoDB ---
 mongoose.connect(process.env.MONGODB_URI)
     .then(async () => {
         console.log('MongoDB Connected!');
-        await hashExistingPasswords(); // รันครั้งเดียวอัตโนมัติ
+        await hashExistingPasswords();
+        await syncAdminFromEnv();
     })
     .catch(err => console.error('MongoDB Error:', err));
 
