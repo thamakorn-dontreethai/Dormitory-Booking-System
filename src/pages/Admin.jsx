@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import * as XLSX from 'xlsx';
 import './Admin.css';
 
 const API_URL = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:3001`;
 
-const TABS = ['Dashboard', 'การจอง', 'ห้องพัก', 'นิสิต'];
+const TABS = ['Dashboard', 'การจอง', 'ห้องพัก', 'นิสิต', 'รายงาน'];
 
 export default function Admin() {
     const navigate = useNavigate();

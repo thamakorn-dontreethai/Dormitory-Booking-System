@@ -168,23 +168,27 @@ export default function BookingPage() {
 
                 {currentRooms.map((r) => {
                   const isFull = r.booked_count >= r.capacity;
-                  const isDisabled = r.is_disabled === 1;
+                  const isInactive = r.status === 'INACTIVE';
+                  const isMaintenance = r.status === 'MAINTENANCE';
+                  const isUnavailable = isInactive || isMaintenance;
                   const isMyRoom = hasActiveBooking && myReservation.room_id === r.room_id;
                   const isAC = r.cooling_type === 'AC';
                   const fillPct = Math.round((r.booked_count / r.capacity) * 100);
-                  const cantBook = isFull || isDisabled || (hasActiveBooking && !isMyRoom);
+                  const cantBook = isFull || isUnavailable || (hasActiveBooking && !isMyRoom);
 
                   return (
                     <div key={r.room_id}
-                      className={`room-card${isMyRoom ? ' my-room' : ''}${isFull && !isMyRoom ? ' is-full' : ''}`}>
+                      className={`room-card${isMyRoom ? ' my-room' : ''}${(isFull || isUnavailable) && !isMyRoom ? ' is-full' : ''}`}>
 
                       {/* Top row */}
                       <div className="room-card-top">
                         <span className="room-number">{r.room_number}</span>
-                        {isDisabled ? (
-                          <span className="room-status access">♿ พิการ</span>
-                        ) : isMyRoom ? (
+                        {isMyRoom ? (
                           <span className="room-status mine">✓ ของฉัน</span>
+                        ) : isMaintenance ? (
+                          <span className="room-status full">🔧 ซ่อมบำรุง</span>
+                        ) : isInactive ? (
+                          <span className="room-status full">🚫 ปิดใช้งาน</span>
                         ) : isFull ? (
                           <span className="room-status full">เต็ม</span>
                         ) : (
@@ -219,7 +223,7 @@ export default function BookingPage() {
                           disabled={cantBook && !isMyRoom}
                           onClick={() => navigate('/ConfirmationPage', { state: { bookedRoom: r } })}
                         >
-                          {isMyRoom ? 'ดูการจอง' : isFull ? 'ห้องเต็ม' : 'จอง'}
+                          {isMyRoom ? 'ดูการจอง' : isMaintenance ? 'ซ่อมบำรุง' : isInactive ? 'ปิดใช้งาน' : isFull ? 'ห้องเต็ม' : 'จอง'}
                         </button>
                       </div>
                     </div>

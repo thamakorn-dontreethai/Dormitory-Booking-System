@@ -209,7 +209,7 @@ app.get('/api/rooms/by-building', async (req, res) => {
             cooling_type: r.type_id?.cooling_type || '-',
             status: r.status,
             booked_count: bookedCountMap[r._id.toString()] || 0,
-            is_disabled: 0
+            is_disabled: r.status !== 'ACTIVE' ? 1 : 0
         }));
 
         res.json(result);
@@ -261,6 +261,7 @@ app.post('/api/reservations', verifyToken, async (req, res) => {
 
         const room = await Room.findById(roomId).populate('type_id');
         if (!room) return res.status(404).json({ message: 'ไม่พบห้องพัก' });
+        if (room.status !== 'ACTIVE') return res.status(400).json({ message: 'ห้องนี้ไม่เปิดให้จอง' });
 
         const student = await Student.findById(studentId);
         if (!student) return res.status(404).json({ message: 'ไม่พบข้อมูลนิสิต' });
