@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import * as XLSX from 'xlsx';
 import './Admin.css';
 
 const API_URL = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:3001`;
@@ -24,6 +23,9 @@ export default function Admin() {
     });
     const [addErr, setAddErr] = useState('');
     const [addLoading, setAddLoading] = useState(false);
+    const [searchReservation, setSearchReservation] = useState('');
+    const [searchRoom, setSearchRoom] = useState('');
+    const [searchStudent, setSearchStudent] = useState('');
 
     const token = localStorage.getItem('adminToken');
 
@@ -273,121 +275,158 @@ export default function Admin() {
                 )}
 
                 {/* === TAB: การจอง === */}
-                {tab === 'การจอง' && (
-                    <div>
-                        <div className="ad-section-header">
-                            <h2 className="ad-section-title">
-                                รายการจองทั้งหมด <span className="ad-count-badge">{reservations.length}</span>
-                            </h2>
-                        </div>
-                        <div className="ad-table-wrap">
-                            <table className="ad-table">
-                                <thead>
-                                    <tr>
-                                        <th>รหัสนิสิต</th>
-                                        <th>ชื่อ-สกุล</th>
-                                        <th>ห้อง</th>
-                                        <th>วันที่จอง</th>
-                                        <th>สถานะ</th>
-                                        <th>จัดการ</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {reservations.map(r => (
-                                        <tr key={r._id}>
-                                            <td>{r.student_code}</td>
-                                            <td><strong>{r.full_name}</strong></td>
-                                            <td>{r.room_number}</td>
-                                            <td>{new Date(r.created_at).toLocaleDateString('th-TH')}</td>
-                                            <td>
-                                                <span className={`ad-pill ${getStatusClass(r.status)}`}>
-                                                    {r.status}
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <div style={{ display: 'flex', gap: '6px' }}>
-                                                    {r.status === 'PENDING' && (
-                                                        <button onClick={() => updateReservation(r._id, 'CONFIRMED')} className="ad-btn approve">
-                                                            อนุมัติ
-                                                        </button>
-                                                    )}
-                                                    {r.status !== 'CANCELLED' && r.status !== 'COMPLETED' && (
-                                                        <button onClick={() => updateReservation(r._id, 'CANCELLED')} className="ad-btn cancel">
-                                                            ยกเลิก
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            </td>
+                {tab === 'การจอง' && (() => {
+                    const filtered = reservations.filter(r => {
+                        const q = searchReservation.toLowerCase();
+                        return !q || r.student_code?.includes(q) || r.full_name?.toLowerCase().includes(q) || r.room_number?.includes(q);
+                    });
+                    return (
+                        <div>
+                            <div className="ad-section-header">
+                                <h2 className="ad-section-title">
+                                    รายการจองทั้งหมด <span className="ad-count-badge">{filtered.length}</span>
+                                </h2>
+                                <input
+                                    className="ad-search-input"
+                                    placeholder="ค้นหา รหัสนิสิต / ชื่อ / ห้อง..."
+                                    value={searchReservation}
+                                    onChange={e => setSearchReservation(e.target.value)}
+                                />
+                            </div>
+                            <div className="ad-table-wrap">
+                                <table className="ad-table">
+                                    <thead>
+                                        <tr>
+                                            <th>รหัสนิสิต</th>
+                                            <th>ชื่อ-สกุล</th>
+                                            <th>ห้อง</th>
+                                            <th>วันที่จอง</th>
+                                            <th>สถานะ</th>
+                                            <th>จัดการ</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody>
+                                        {filtered.map(r => (
+                                            <tr key={r._id}>
+                                                <td>{r.student_code}</td>
+                                                <td><strong>{r.full_name}</strong></td>
+                                                <td>{r.room_number}</td>
+                                                <td>{new Date(r.created_at).toLocaleDateString('th-TH')}</td>
+                                                <td>
+                                                    <span className={`ad-pill ${getStatusClass(r.status)}`}>
+                                                        {r.status}
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <div style={{ display: 'flex', gap: '6px' }}>
+                                                        {r.status === 'PENDING' && (
+                                                            <button onClick={() => updateReservation(r._id, 'CONFIRMED')} className="ad-btn approve">
+                                                                อนุมัติ
+                                                            </button>
+                                                        )}
+                                                        {r.status !== 'CANCELLED' && r.status !== 'COMPLETED' && (
+                                                            <button onClick={() => updateReservation(r._id, 'CANCELLED')} className="ad-btn cancel">
+                                                                ยกเลิก
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
-                    </div>
-                )}
+                    );
+                })()}
 
                 {/* === TAB: ห้องพัก === */}
-                {tab === 'ห้องพัก' && (
-                    <div>
-                        <div className="ad-section-header">
-                            <h2 className="ad-section-title">
-                                ห้องพักทั้งหมด <span className="ad-count-badge">{rooms.length}</span>
-                            </h2>
-                        </div>
-                        <div className="ad-table-wrap">
-                            <table className="ad-table">
-                                <thead>
-                                    <tr>
-                                        <th>ห้อง</th>
-                                        <th>อาคาร</th>
-                                        <th>ประเภท</th>
-                                        <th>เครื่องทำความเย็น</th>
-                                        <th>สถานะ</th>
-                                        <th>จัดการ</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {rooms.map(r => (
-                                        <tr key={r._id}>
-                                            <td><strong>{r.room_number}</strong></td>
-                                            <td>{r.building_id?.building_name || '-'}</td>
-                                            <td>{r.type_id?.type_name || '-'}</td>
-                                            <td>{r.type_id?.cooling_type || '-'}</td>
-                                            <td>
-                                                <select
-                                                    value={r.status}
-                                                    onChange={e => updateRoomStatus(r._id, e.target.value)}
-                                                    className="ad-select"
-                                                >
-                                                    <option value="ACTIVE">ACTIVE</option>
-                                                    <option value="INACTIVE">INACTIVE</option>
-                                                    <option value="MAINTENANCE">MAINTENANCE</option>
-                                                </select>
-                                            </td>
-                                            <td>
-                                                <button onClick={() => deleteRoom(r._id)} className="ad-btn delete">ลบ</button>
-                                            </td>
+                {tab === 'ห้องพัก' && (() => {
+                    const filtered = rooms.filter(r => {
+                        const q = searchRoom.toLowerCase();
+                        return !q || r.room_number?.includes(q) || r.building_id?.building_name?.toLowerCase().includes(q) || r.type_id?.type_name?.toLowerCase().includes(q);
+                    });
+                    return (
+                        <div>
+                            <div className="ad-section-header">
+                                <h2 className="ad-section-title">
+                                    ห้องพักทั้งหมด <span className="ad-count-badge">{filtered.length}</span>
+                                </h2>
+                                <input
+                                    className="ad-search-input"
+                                    placeholder="ค้นหา ห้อง / อาคาร / ประเภท..."
+                                    value={searchRoom}
+                                    onChange={e => setSearchRoom(e.target.value)}
+                                />
+                            </div>
+                            <div className="ad-table-wrap">
+                                <table className="ad-table">
+                                    <thead>
+                                        <tr>
+                                            <th>ห้อง</th>
+                                            <th>อาคาร</th>
+                                            <th>ประเภท</th>
+                                            <th>เครื่องทำความเย็น</th>
+                                            <th>สถานะ</th>
+                                            <th>จัดการ</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody>
+                                        {filtered.map(r => (
+                                            <tr key={r._id}>
+                                                <td><strong>{r.room_number}</strong></td>
+                                                <td>{r.building_id?.building_name || '-'}</td>
+                                                <td>{r.type_id?.type_name || '-'}</td>
+                                                <td>{r.type_id?.cooling_type || '-'}</td>
+                                                <td>
+                                                    <select
+                                                        value={r.status}
+                                                        onChange={e => updateRoomStatus(r._id, e.target.value)}
+                                                        className="ad-select"
+                                                    >
+                                                        <option value="ACTIVE">ACTIVE</option>
+                                                        <option value="INACTIVE">INACTIVE</option>
+                                                        <option value="MAINTENANCE">MAINTENANCE</option>
+                                                    </select>
+                                                </td>
+                                                <td>
+                                                    <button onClick={() => deleteRoom(r._id)} className="ad-btn delete">ลบ</button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
-                    </div>
-                )}
+                    );
+                })()}
 
                 {/* === TAB: นิสิต === */}
-                {tab === 'นิสิต' && (
+                {tab === 'นิสิต' && (() => {
+                    const filtered = students.filter(s => {
+                        const q = searchStudent.toLowerCase();
+                        return !q || s.student_code?.includes(q) || s.full_name?.toLowerCase().includes(q) || s.email?.toLowerCase().includes(q) || s.faculty?.toLowerCase().includes(q);
+                    });
+                    return (
                     <div>
                         <div className="ad-section-header">
                             <h2 className="ad-section-title">
-                                นิสิตทั้งหมด <span className="ad-count-badge">{students.length}</span>
+                                นิสิตทั้งหมด <span className="ad-count-badge">{filtered.length}</span>
                             </h2>
-                            <button
-                                onClick={() => setShowAddForm(!showAddForm)}
-                                className={`ad-add-btn ${showAddForm ? 'close' : ''}`}
-                            >
-                                {showAddForm ? '✕ ปิด' : '+ เพิ่มนิสิต'}
-                            </button>
+                            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                <input
+                                    className="ad-search-input"
+                                    placeholder="ค้นหา รหัสนิสิต / ชื่อ / อีเมล / คณะ..."
+                                    value={searchStudent}
+                                    onChange={e => setSearchStudent(e.target.value)}
+                                />
+                                <button
+                                    onClick={() => setShowAddForm(!showAddForm)}
+                                    className={`ad-add-btn ${showAddForm ? 'close' : ''}`}
+                                >
+                                    {showAddForm ? '✕ ปิด' : '+ เพิ่มนิสิต'}
+                                </button>
+                            </div>
                         </div>
 
                         {/* Form เพิ่มนิสิต */}
@@ -461,7 +500,7 @@ export default function Admin() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {students.map(s => (
+                                    {filtered.map(s => (
                                         <tr key={s._id}>
                                             <td>{s.student_code}</td>
                                             <td><strong>{s.full_name}</strong></td>
@@ -477,7 +516,8 @@ export default function Admin() {
                             </table>
                         </div>
                     </div>
-                )}
+                    );
+                })()}
             </main>
         </div>
     );

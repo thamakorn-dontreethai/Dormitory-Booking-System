@@ -541,6 +541,29 @@ body {
     margin-bottom: 16px;
 }
 
+/* Search input */
+.ad-search-input {
+    padding: 8px 14px;
+    border: 1.5px solid var(--gray-200);
+    border-radius: 8px;
+    font-size: 13px;
+    font-family: 'DM Sans', sans-serif;
+    color: var(--gray-900);
+    background: #fff;
+    outline: none;
+    width: 260px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.ad-search-input:focus {
+    border-color: var(--green-500);
+    box-shadow: 0 0 0 3px var(--green-100);
+}
+
+.ad-search-input::placeholder {
+    color: var(--gray-400);
+}
+
 /* Loading */
 .ad-loading {
     padding: 48px;
