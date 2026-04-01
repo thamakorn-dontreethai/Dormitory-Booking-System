@@ -57,7 +57,7 @@ function ProfileModal({ user, reservation, isOpen, onClose, onSimulatePayment, o
   );
 }
 
-// --- Main BookingPage ---
+// --- Main BookingPage 
 export default function BookingPage() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
