@@ -1,0 +1,357 @@
+/* ============================================
+   PaymentPage.css — Green & White Minimal
+   (โทนเดียวกับ LoginPage)
+   ============================================ */
+
+.pay-wrapper {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f4f7f4;
+  padding: 72px 16px 32px;
+  font-family: 'Kanit', 'DM Sans', sans-serif;
+  color: #1f3a1f;
+}
+
+.pay-layout {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 440px);
+  gap: 20px;
+  align-items: start;
+  width: 100%;
+  max-width: 760px;
+}
+
+.pay-card {
+  background: #ffffff;
+  border: 1px solid #d0e4d0;
+  border-radius: 16px;
+  padding: 28px;
+  width: 100%;
+  box-shadow: 0 4px 24px rgba(45, 122, 45, 0.08);
+}
+
+.pay-back-btn {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  z-index: 10;
+  background: #ffffff;
+  border: 1px solid #d0e4d0;
+  color: #3a5c3a;
+  font: inherit;
+  font-size: 14px;
+  padding: 8px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.pay-back-btn:hover:not(:disabled) {
+  background: #e6f4e6;
+  border-color: #2d7a2d;
+  color: #2d7a2d;
+}
+
+.pay-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0 0 16px;
+}
+
+.pay-section-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 12px;
+}
+
+.pay-desc {
+  color: #6b886b;
+  font-size: 14px;
+  margin: 0 0 20px;
+}
+
+.center {
+  text-align: center;
+}
+
+.mono {
+  font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  letter-spacing: 0.02em;
+}
+
+.pay-loading {
+  color: #6b886b;
+}
+
+/* ── Summary rows ──────────────────────────── */
+.pay-rows {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.pay-rows > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pay-rows dt {
+  color: #6b886b;
+  flex-shrink: 0;
+}
+
+.pay-rows dd {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.pay-rows .pay-total {
+  border-top: 1px dashed #d0e4d0;
+  padding-top: 12px;
+  margin-top: 4px;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.pay-rows .pay-total dt {
+  color: #1f3a1f;
+}
+
+.pay-rows .pay-total dd {
+  color: #2d7a2d;
+}
+
+/* ── Method tabs ───────────────────────────── */
+.pay-methods {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.pay-method {
+  font: inherit;
+  font-size: 14px;
+  padding: 10px 8px;
+  border-radius: 10px;
+  border: 1px solid #d0e4d0;
+  background: #ffffff;
+  color: #3a5c3a;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pay-method:hover:not(:disabled) {
+  border-color: #2d7a2d;
+}
+
+.pay-method.active {
+  background: #e6f4e6;
+  border-color: #2d7a2d;
+  color: #2d7a2d;
+  font-weight: 600;
+}
+
+/* ── PromptPay ─────────────────────────────── */
+.pay-promptpay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.pay-qr {
+  width: 200px;
+  height: 200px;
+  color: #1a2e1a;
+  border: 1px solid #d0e4d0;
+  border-radius: 12px;
+}
+
+.pay-qr-amount {
+  font-size: 22px;
+  font-weight: 600;
+  color: #2d7a2d;
+  font-variant-numeric: tabular-nums;
+}
+
+.pay-hint {
+  font-size: 13px;
+  color: #6b886b;
+  text-align: center;
+  margin: 0;
+}
+
+/* ── Card form ─────────────────────────────── */
+.pay-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.pay-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: #3a5c3a;
+  min-width: 0;
+}
+
+.pay-field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.pay-input {
+  font: inherit;
+  font-size: 15px;
+  padding: 10px 12px;
+  border: 1px solid #d0e4d0;
+  border-radius: 10px;
+  background: #fbfdfb;
+  color: #1f3a1f;
+  width: 100%;
+}
+
+.pay-input:focus {
+  outline: none;
+  border-color: #2d7a2d;
+  box-shadow: 0 0 0 3px rgba(45, 122, 45, 0.12);
+}
+
+/* ── Buttons / messages ────────────────────── */
+.pay-btn {
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  padding: 12px 18px;
+  border: none;
+  border-radius: 10px;
+  background: #2d7a2d;
+  color: #ffffff;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.pay-btn:hover:not(:disabled) {
+  background: #1e5c1e;
+}
+
+.pay-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.pay-btn.full {
+  width: 100%;
+}
+
+.pay-btn.secondary {
+  background: #ffffff;
+  color: #2d7a2d;
+  border: 1px solid #2d7a2d;
+}
+
+.pay-btn.secondary:hover {
+  background: #e6f4e6;
+}
+
+.pay-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+
+.pay-error {
+  padding: 10px 14px;
+  background: #ffebee;
+  border: 1px solid #f5b8b5;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #c62828;
+  width: 100%;
+}
+
+.pay-rejected {
+  margin-bottom: 16px;
+  line-height: 1.6;
+}
+
+.pay-overdue {
+  color: #c62828;
+  font-weight: 600;
+}
+
+/* ── Receipt ───────────────────────────────── */
+.pay-receipt {
+  max-width: 440px;
+}
+
+.pay-success-icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 12px;
+  border-radius: 50%;
+  background: #e6f4e6;
+  color: #2d7a2d;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.pay-success-icon.reviewing {
+  background: #fff3e0;
+  font-size: 24px;
+}
+
+.pay-status {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 99px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.pay-status.reviewing {
+  background: #fff3e0;
+  color: #8a4b00;
+}
+
+.pay-status.approved {
+  background: #e6f4e6;
+  color: #2d7a2d;
+}
+
+@media (max-width: 760px) {
+  .pay-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  .pay-wrapper {
+    background: #ffffff;
+    padding: 0;
+  }
+
+  .pay-card {
+    box-shadow: none;
+  }
+}

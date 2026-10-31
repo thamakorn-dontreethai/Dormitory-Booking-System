@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import './ConfirmationPage.css';
 import axios from 'axios';
-const API_URL = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:3001`;
+const API_URL = import.meta.env.VITE_API_URL || '';
 
 function PaymentModal({ isOpen, onClose, onConfirm, bookingState, bookedRoom, user }) {
   if (!isOpen) return null;
@@ -18,13 +18,12 @@ function PaymentModal({ isOpen, onClose, onConfirm, bookingState, bookedRoom, us
         <div className="modal-body">
           <p>โปรดตรวจสอบข้อมูลการจองของคุณ:</p>
           <ul className="modal-details">
-            {/* เพิ่มการตรวจสอบ user && bookedRoom ก่อนใช้งาน */}
             <li><strong>ผู้จอง:</strong> {user?.full_name}</li>
             <li><strong>ห้อง:</strong> {bookedRoom?.room_number} ({bookedRoom?.type_name})</li>
             <li><strong>ราคา:</strong> {bookedRoom?.monthly_price} บาท (ต่อเดือน)</li>
           </ul>
           <p className="payment-note">
-            นี่คือการยืนยันการจอง ระบบจะบันทึกข้อมูลของคุณ
+            เมื่อยืนยันการจอง ระบบจะพาไปหน้าชำระเงิน
           </p>
         </div>
         <div className="modal-footer">
@@ -36,7 +35,44 @@ function PaymentModal({ isOpen, onClose, onConfirm, bookingState, bookedRoom, us
             onClick={onConfirm}
             disabled={bookingState === 'processing'}
           >
-            {bookingState === 'processing' ? 'กำลังบันทึก...' : 'ยืนยันและจองทันที'}
+            {bookingState === 'processing' ? 'กำลังบันทึก...' : 'ยืนยันและไปชำระเงิน'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CancelModal({ isOpen, onClose, onConfirm, isCancelling, bookedRoom, user }) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2 style={{ color: '#c62828' }}>⚠️ ยืนยันการยกเลิกการจอง</h2>
+          <button onClick={onClose} className="modal-close-btn">&times;</button>
+        </div>
+        <div className="modal-body">
+          <p>คุณแน่ใจหรือไม่ว่าต้องการยกเลิกการจองห้องพักนี้?</p>
+          <ul className="modal-details">
+            <li><strong>ผู้จอง:</strong> {user?.full_name} ({user?.student_code})</li>
+            <li><strong>ห้อง:</strong> {bookedRoom?.room_number} {bookedRoom?.type_name ? `(${bookedRoom.type_name})` : ''}</li>
+          </ul>
+          <p className="payment-note" style={{ color: '#c62828' }}>
+            * หากยกเลิก ข้อมูลการจองจะถูกลบออกจากระบบ และห้องพักจะเปิดให้ผู้อื่นจองได้ทันที
+          </p>
+        </div>
+        <div className="modal-footer">
+          <button className="cf-button back-button" onClick={onClose} disabled={isCancelling}>
+            ปิดหน้าต่าง
+          </button>
+          <button
+            className="cf-button cancel-button danger-solid"
+            onClick={onConfirm}
+            disabled={isCancelling}
+          >
+            {isCancelling ? 'กำลังยกเลิก...' : 'ยืนยันยกเลิกการจอง'}
           </button>
         </div>
       </div>
@@ -57,6 +93,9 @@ export default function ConfirmationPage() {
   const [error, setError] = useState(null);
   // --- [เพิ่มใหม่] State สำหรับควบคุม Modal ---
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [myStatus, setMyStatus] = useState(null); // สถานะการจองของฉัน: PENDING (รอชำระ) / CONFIRMED
 
   // --- Effect (Logic ใหม่ทั้งหมด) ---
   useEffect(() => {
@@ -77,6 +116,7 @@ export default function ConfirmationPage() {
         // 1. ตรวจสอบว่า "ฉัน" มีการจองอยู่แล้วหรือไม่
         const myRes = await axios.get(`${API_URL}/api/my-reservation`);
         const myBooking = myRes.data.reservation;
+        setMyStatus(myBooking?.status || null);
 
         let roomToFetch;
         let newBookingState = 'loading';
@@ -137,11 +177,9 @@ export default function ConfirmationPage() {
       });
 
       if (response.data && response.data.reservation) {
-        // [ใหม่] เพิ่มข้อมูลของฉันเข้าไปในรายชื่อ roommates
-        setRoommates([...roommates, response.data.reservation]);
-        alert(response.data.message);
-        setBookingState('confirmed');
-        setIsModalOpen(false); // <-- ปิด Modal เมื่อจองสำเร็จ
+        // จองสำเร็จ -> ไปหน้าชำระเงินต่อทันที
+        setIsModalOpen(false);
+        navigate('/PaymentPage');
       } else {
         throw new Error("Invalid response from server");
       }
@@ -154,23 +192,18 @@ export default function ConfirmationPage() {
   };
 
   // --- [เพิ่มใหม่] ฟังก์ชันยกเลิกการจอง ---
-  const handleCancelBooking = async () => {
-    if (!confirm("คุณแน่ใจหรือไม่ว่าต้องการยกเลิกการจองนี้? การดำเนินการนี้จะลบข้อมูลการจองของคุณทันที")) {
-      return;
-    }
-
-    setBookingState('processing'); // แสดงสถานะกำลังโหลด
+  const handleConfirmCancel = async () => {
+    setIsCancelling(true);
     try {
       const response = await axios.delete(`${API_URL}/api/my-reservation`);
-      alert(response.data.message); // "ยกเลิกการจองสำเร็จ"
-
-      // ส่งผู้ใช้กลับไปหน้าจองห้อง
+      alert(response.data?.message || 'ยกเลิกการจองสำเร็จ');
+      setIsCancelModalOpen(false);
       navigate('/BookingPage', { replace: true });
-
     } catch (err) {
       console.error("Cancellation failed:", err.response);
       alert('เกิดข้อผิดพลาด: ' + (err.response?.data?.message || 'ไม่สามารถยกเลิกการจองได้'));
-      setBookingState('confirmed'); // หากล้มเหลว ให้กลับไปสถานะเดิม
+    } finally {
+      setIsCancelling(false);
     }
   };
 
@@ -232,7 +265,7 @@ export default function ConfirmationPage() {
                       <td>{mate.room_number}</td>
                       <td>{mate.student_code}</td>
                       <td>{mate.full_name}</td>
-                      <td><span className="note-confirmed">{mate.status === 'CONFIRMED' ? 'จองสำเร็จ' : 'รอชำระเงิน'}</span></td>
+                      <td><span className="note-confirmed">{{ CONFIRMED: 'จองสำเร็จ', PAID: 'รอตรวจสอบ' }[mate.status] || 'รอชำระเงิน'}</span></td>
                     </tr>
                   ))
                 ) : (
@@ -265,13 +298,28 @@ export default function ConfirmationPage() {
           )}
           {bookingState === 'confirmed' && (
             <>
-              <div className="success-message">
-                ✅ การจองของคุณเสร็จสมบูรณ์แล้ว
-              </div>
-              {/* [เพิ่มใหม่] ปุ่มยกเลิกการจอง */}
-              <button className="cf-button cancel-button" onClick={handleCancelBooking}>
-                ยกเลิกการจองนี้
-              </button>
+              {myStatus === 'PENDING' ? (
+                <button className="cf-button confirm-button" onClick={() => navigate('/PaymentPage')}>
+                  ชำระเงิน
+                </button>
+              ) : myStatus === 'PAID' ? (
+                <div className="success-message review">
+                  ⏳ ชำระเงินแล้ว กำลังรอเจ้าหน้าที่ตรวจสอบ
+                </div>
+              ) : (
+                <div className="success-message">
+                  ✅ การจองของคุณเสร็จสมบูรณ์แล้ว
+                </div>
+              )}
+              {/* ยกเลิกได้เฉพาะตอนยังไม่ชำระเงิน */}
+              {myStatus === 'PENDING' && (
+                <button
+                  className="cf-button cancel-button"
+                  onClick={() => setIsCancelModalOpen(true)}
+                >
+                  ยกเลิกการจองนี้
+                </button>
+              )}
             </>
           )}
           <button className="cf-button back-button" onClick={() => navigate('/BookingPage')}>
@@ -280,13 +328,25 @@ export default function ConfirmationPage() {
         </div>
       </div>
 
-      {/* --- Render Modal --- */}
+      {/* --- Render Payment Modal --- */}
       {isModalOpen && (
         <PaymentModal
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           onConfirm={handleConfirmBooking}
           bookingState={bookingState}
+          bookedRoom={bookedRoom}
+          user={user}
+        />
+      )}
+
+      {/* --- Render Cancel Modal --- */}
+      {isCancelModalOpen && (
+        <CancelModal
+          isOpen={isCancelModalOpen}
+          onClose={() => setIsCancelModalOpen(false)}
+          onConfirm={handleConfirmCancel}
+          isCancelling={isCancelling}
           bookedRoom={bookedRoom}
           user={user}
         />

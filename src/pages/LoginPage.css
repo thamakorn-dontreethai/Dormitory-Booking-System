@@ -163,6 +163,22 @@ body {
   animation: shake 0.4s ease;
 }
 
+/* ── Success ───────────────────────────────── */
+.login-success {
+  padding: 10px 14px;
+  background: #e6f4e6;
+  border: 1px solid #b5dbb5;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #2d7a2d;
+}
+
+/* ── Register card (ฟอร์มยาวกว่า login) ───── */
+.register-card {
+  max-width: 460px;
+  margin: 48px 0;
+}
+
 /* ── Submit button ─────────────────────────── */
 .login-btn {
   margin-top: 4px;

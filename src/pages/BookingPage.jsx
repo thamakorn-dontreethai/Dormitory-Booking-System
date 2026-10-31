@@ -2,18 +2,18 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './BookingPage.css';
 import axios from 'axios';
-const API_URL = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:3001`;
+const API_URL = import.meta.env.VITE_API_URL || '';
+
+// สถานะการจองของนิสิต -> ข้อความและสีที่แสดง
+const MY_STATUS = {
+  PENDING: { label: 'รอชำระเงิน', className: 'status-pending' },
+  PAID: { label: 'ชำระแล้ว รอเจ้าหน้าที่ตรวจสอบ', className: 'status-review' },
+  CONFIRMED: { label: 'ยืนยันการจองแล้ว', className: 'status-ok' },
+};
 
 // --- Profile Modal ---
-function ProfileModal({ user, reservation, isOpen, onClose, onSimulatePayment, onLogout }) {
+function ProfileModal({ user, reservation, isOpen, onClose, onGoToPayment, onGoToBills, hasBills, onLogout }) {
   if (!isOpen) return null;
-  const [isProcessing, setIsProcessing] = useState(false);
-
-  const handlePaymentClick = async () => {
-    setIsProcessing(true);
-    await onSimulatePayment();
-    setIsProcessing(false);
-  };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -34,19 +34,29 @@ function ProfileModal({ user, reservation, isOpen, onClose, onSimulatePayment, o
               <ul className="modal-details">
                 <li><strong>ห้อง:</strong> <span>{reservation.room_number} ({reservation.type_name})</span></li>
                 <li><strong>สถานะ:</strong>
-                  <span className={`status-pill ${reservation.status === 'PENDING' ? 'status-pending' : 'status-ok'}`}>
-                    {reservation.status === 'PENDING' ? 'รอชำระเงิน' : 'ชำระเงินแล้ว'}
+                  <span className={`status-pill ${MY_STATUS[reservation.status]?.className || 'status-ok'}`}>
+                    {MY_STATUS[reservation.status]?.label || reservation.status}
                   </span>
                 </li>
               </ul>
               {reservation.status === 'PENDING' && (
-                <button className="cf-button confirm-button" onClick={handlePaymentClick} disabled={isProcessing}>
-                  {isProcessing ? 'กำลังดำเนินการ...' : 'ชำระเงิน'}
+                <button className="cf-button confirm-button" onClick={onGoToPayment}>
+                  ไปหน้าชำระเงิน
+                </button>
+              )}
+              {reservation.status !== 'PENDING' && (
+                <button className="cf-button back-button" onClick={onGoToPayment}>
+                  ดูใบเสร็จ
                 </button>
               )}
             </div>
           ) : (
             <p className="no-booking">คุณยังไม่มีการจองห้องพัก</p>
+          )}
+          {(reservation?.status === 'CONFIRMED' || hasBills) && (
+            <button className="cf-button confirm-button" onClick={onGoToBills}>
+              ค่าห้องรายเดือน
+            </button>
           )}
         </div>
         <div className="modal-footer">
@@ -66,6 +76,8 @@ export default function BookingPage() {
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(false);
   const [myReservation, setMyReservation] = useState(null);
+  const [lastRejection, setLastRejection] = useState(null); // การจองล่าสุดที่ admin ปฏิเสธการชำระเงิน
+  const [bills, setBills] = useState([]); // บิลค่าห้องรายเดือน
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const roomsPerPage = 9;
@@ -81,7 +93,13 @@ export default function BookingPage() {
     axios.get(`${API_URL}/api/buildings`, { params: { gender: user.gender } })
       .then(res => setBuildings(res.data || [])).catch(() => setBuildings([]));
     axios.get(`${API_URL}/api/my-reservation`)
-      .then(res => setMyReservation(res.data.reservation || null))
+      .then(res => {
+        setMyReservation(res.data.reservation || null);
+        setLastRejection(res.data.last_rejection || null);
+      })
+      .catch(err => console.error(err));
+    axios.get(`${API_URL}/api/my-invoices`)
+      .then(res => setBills(Array.isArray(res.data) ? res.data : []))
       .catch(err => console.error(err));
   }, [user]);
 
@@ -105,18 +123,14 @@ export default function BookingPage() {
     navigate('/HomePage', { replace: true });
   };
 
-  const handleSimulatePayment = async () => {
-    try {
-      const res = await axios.patch(`${API_URL}/api/my-reservation/confirm`);
-      if (res.data.success) { setMyReservation(res.data.reservation); alert(res.data.message); }
-    } catch (err) {
-      alert('เกิดข้อผิดพลาด: ' + (err.response?.data?.message || 'ไม่สามารถชำระเงินได้'));
-    }
-  };
 
   if (!user) return null;
 
   const hasActiveBooking = !!myReservation;
+  // บิลที่จ่ายได้แล้ว (บันทึกค่าน้ำ/ไฟครบ)
+  const unpaidBills = bills.filter(b => b.status === 'UNPAID' && b.utilities_recorded);
+  const showBillsLink = myReservation?.status === 'CONFIRMED' || bills.length > 0;
+  const hasOverdue = unpaidBills.some(b => b.overdue);
   const indexOfLast = currentPage * roomsPerPage;
   const currentRooms = rooms.slice(indexOfLast - roomsPerPage, indexOfLast);
   const totalPages = Math.ceil(rooms.length / roomsPerPage);
@@ -128,11 +142,46 @@ export default function BookingPage() {
           <h1>จองหอพักนิสิต</h1>
           <div className="subtitle">เลือกอาคารเพื่อจอง</div>
         </div>
-        <div className="userbox" onClick={() => setIsProfileModalOpen(true)}>
-          <div className="name">{user.full_name}</div>
-          <span className="badge mono">{user.gender ?? 'N/A'}</span>
+        <div className="bk-header-actions">
+          {showBillsLink && (
+            <button className="bk-bills-link" onClick={() => navigate('/BillsPage')}>
+              ค่าห้อง / น้ำ / ไฟ
+              {unpaidBills.length > 0 && <span className="bk-bills-badge">{unpaidBills.length}</span>}
+            </button>
+          )}
+          <div className="userbox" onClick={() => setIsProfileModalOpen(true)}>
+            <div className="name">{user.full_name}</div>
+            <span className="badge mono">{user.gender ?? 'N/A'}</span>
+          </div>
         </div>
       </header>
+
+      {unpaidBills.length > 0 && (
+        <div className={`bk-notice bills ${hasOverdue ? 'rejected' : 'review'}`}>
+          <span>
+            มีค่าห้องค้างชำระ {unpaidBills.length} รายการ
+            รวม {unpaidBills.reduce((s, b) => s + b.amount, 0).toLocaleString('th-TH')} บาท
+            {hasOverdue && ` (เกินกำหนด ${unpaidBills.filter(b => b.overdue).length} รายการ)`}
+          </span>
+          <button className="bk-notice-btn" onClick={() => navigate('/BillsPage')}>ไปหน้าชำระเงิน</button>
+        </div>
+      )}
+      {myReservation?.status === 'PAID' && (
+        <div className="bk-notice review">
+          ชำระเงินห้อง {myReservation.room_number} แล้ว กำลังรอเจ้าหน้าที่ตรวจสอบ
+        </div>
+      )}
+      {lastRejection && (
+        <div className="bk-notice rejected">
+          <strong>การชำระเงินห้อง {lastRejection.room_number} ถูกปฏิเสธ</strong>
+          {lastRejection.reason && <div>เหตุผล: {lastRejection.reason}</div>}
+          <div>
+            ระบบคืนเงิน {Number(lastRejection.amount || 0).toLocaleString('th-TH')} บาทแล้ว
+            {lastRejection.refund_ref && <> เลขอ้างอิง <span className="mono">{lastRejection.refund_ref}</span></>}
+            {' '}คุณสามารถเลือกห้องและจองใหม่ได้
+          </div>
+        </div>
+      )}
 
       <div className="card">
         <div className="card-body">
@@ -250,7 +299,9 @@ export default function BookingPage() {
         <ProfileModal
           user={user} reservation={myReservation}
           isOpen={isProfileModalOpen} onClose={() => setIsProfileModalOpen(false)}
-          onSimulatePayment={handleSimulatePayment} onLogout={handleLogout}
+          onGoToPayment={() => navigate('/PaymentPage')}
+          onGoToBills={() => navigate('/BillsPage')} hasBills={bills.length > 0}
+          onLogout={handleLogout}
         />
       )}
     </div>

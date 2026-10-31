@@ -1,20 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import axios from 'axios';
+import { getStudentSession } from '../utils/auth';
 import './LoginPage.css';
 
-const API_URL = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:3001`;
+const API_URL = import.meta.env.VITE_API_URL || '';
 
 export default function LoginPage() {
-  const [username, setUsername] = useState('');
+  const location = useLocation();
+  const registered = location.state?.registered;
+  // login แล้วกลับไปหน้าที่กดมา (เช่น ค่าห้อง/น้ำ/ไฟ) ถ้าไม่มีให้ไปหน้าจองห้อง
+  const redirectTo = ['/BookingPage', '/BillsPage'].includes(location.state?.from) ? location.state.from : '/BookingPage';
+  const [username, setUsername] = useState(location.state?.username || '');
   const [password, setPassword] = useState('');
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) navigate('/BookingPage', { replace: true });
+    // login อยู่แล้ว (token ยังไม่หมดอายุ) ไปหน้าจองเลย
+    if (getStudentSession()) navigate(redirectTo, { replace: true });
   }, []);
 
   const onSubmit = async (e) => {
@@ -32,7 +37,7 @@ export default function LoginPage() {
       });
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
-      navigate('/BookingPage', { replace: true });
+      navigate(redirectTo, { replace: true });
     } catch (e) {
       setErr(e?.response?.data?.message || 'เข้าสู่ระบบไม่สำเร็จ');
     } finally {
@@ -77,12 +82,17 @@ export default function LoginPage() {
             />
           </div>
 
+          {registered && !err && <div className="login-success">สมัครสมาชิกสำเร็จ กรุณาเข้าสู่ระบบ</div>}
           {err && <div className="login-error">{err}</div>}
 
           <button className="login-btn" type="submit" disabled={loading}>
             {loading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
           </button>
         </form>
+
+        <div className="login-admin-link">
+          ยังไม่มีบัญชี? <Link to="/RegisterPage">สมัครสมาชิก</Link>
+        </div>
 
         <div className="login-admin-link">
           ผู้ดูแลระบบ? <Link to="/AdminLogin">เข้าสู่ระบบ Admin</Link>

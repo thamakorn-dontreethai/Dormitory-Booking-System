@@ -281,6 +281,31 @@
   color: #fff;
 }
 
+.cancel-button {
+  background-color: #ffebee;
+  color: #c62828;
+  border: 1px solid #ef9a9a;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cancel-button:hover:not(:disabled) {
+  background-color: #ffcdd2;
+  color: #b71c1c;
+  border-color: #e57373;
+}
+
+.cancel-button.danger-solid {
+  background-color: #c62828 !important;
+  color: #ffffff !important;
+  border: 1px solid #b71c1c !important;
+}
+
+.cancel-button.danger-solid:hover:not(:disabled) {
+  background-color: #b71c1c !important;
+  box-shadow: 0 4px 12px rgba(198, 40, 40, 0.3);
+}
+
 .success-message {
   background-color: #e8f5e9;
   color: #1b5e20;
@@ -289,6 +314,12 @@
   border-radius: 8px;
   text-align: center;
   font-weight: 600;
+}
+
+.success-message.review {
+  background-color: #fff3e0;
+  color: #8a4b00;
+  border-color: #ffcc80;
 }
 
 /* ── Modal ─────────────────────────────────── */

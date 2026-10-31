@@ -291,6 +291,56 @@ body {
   font-weight: 700;
 }
 
+.status-review {
+  background: #fff3e0;
+  color: #8a4b00;
+}
+
+/* ── แจ้งสถานะการชำระเงิน ──────────────────── */
+.bk-notice {
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.bk-notice.review {
+  background: #fff3e0;
+  border: 1px solid #ffcc80;
+  color: #8a4b00;
+}
+
+.bk-notice.bills {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.bk-notice-btn {
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 7px 14px;
+  border-radius: 8px;
+  border: none;
+  background: var(--primary);
+  color: #fff;
+  cursor: pointer;
+}
+
+.bk-notice-btn:hover {
+  background: var(--primary-dk);
+}
+
+.bk-notice.rejected {
+  background: var(--bad-bg);
+  border: 1px solid #f5b8b5;
+  color: var(--bad-fg);
+}
+
 /* ── Buttons ───────────────────────────────── */
 .actions {
   display: flex;
@@ -776,4 +826,43 @@ body {
   .room-grid {
     grid-template-columns: 1fr;
   }
+}
+/* ── ปุ่มไปหน้าชำระค่าห้อง/น้ำ/ไฟ (header) ──── */
+.bk-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.bk-bills-link {
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.bk-bills-link:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.bk-bills-badge {
+  min-width: 18px;
+  padding: 1px 6px;
+  border-radius: 99px;
+  background: #f59e0b;
+  color: #fff;
+  font-size: 11px;
+  line-height: 16px;
+  text-align: center;
 }
