@@ -127,8 +127,8 @@ export default function BookingPage() {
   if (!user) return null;
 
   const hasActiveBooking = !!myReservation;
-  // บิลที่จ่ายได้แล้ว (บันทึกค่าน้ำ/ไฟครบ)
-  const unpaidBills = bills.filter(b => b.status === 'UNPAID' && b.utilities_recorded);
+  // บิลค้างชำระ (ค่าห้อง + ค่าน้ำ-ไฟ)
+  const unpaidBills = bills.filter(b => b.status === 'UNPAID');
   const showBillsLink = myReservation?.status === 'CONFIRMED' || bills.length > 0;
   const hasOverdue = unpaidBills.some(b => b.overdue);
   const indexOfLast = currentPage * roomsPerPage;

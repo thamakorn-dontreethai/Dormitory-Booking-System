@@ -1,25 +1,27 @@
 import mongoose from 'mongoose';
 
-// บิลค่าห้องรายเดือน (เดือนแรกชำระไปแล้วตอนจอง บิลนี้เริ่มเดือนถัดไป)
+// บิลรายเดือน 2 ประเภท
+// - RENT    = ค่าห้อง ครบกำหนดตามวันที่จองของแต่ละคน (เดือนแรกชำระไปแล้วตอนจอง)
+// - UTILITY = ค่าน้ำ-ค่าไฟ เหมาจ่ายต่อห้อง หารเท่ากันตามจำนวนผู้พัก ครบกำหนดสิ้นเดือน
 const invoiceSchema = new mongoose.Schema({
+    kind: { type: String, enum: ['RENT', 'UTILITY'], default: 'RENT' },
     booking_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Booking', required: true },
     student_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Student', required: true },
     student_code: String,
     full_name: String,
     room_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Room' },
     room_number: String,
-    month: { type: String, required: true }, // 'YYYY-MM'
-    // รายการในบิล: ค่าห้อง + ค่าน้ำ + ค่าไฟ (ค่าน้ำ/ไฟ เพิ่มเมื่อ admin บันทึกมิเตอร์)
+    month: { type: String, required: true }, // 'YYYY-MM' ของรอบบิล
+    period_start: Date, // ช่วงเวลาที่บิลนี้ครอบคลุม
+    period_end: Date,
     items: [{
         type: { type: String, enum: ['RENT', 'WATER', 'ELECTRIC'] },
         label: String,
-        units: Number,       // หน่วยที่ใช้ทั้งห้อง
-        rate: Number,        // บาท/หน่วย
-        share: Number,       // หารกันกี่คน
+        room_fee: Number, // ค่าเหมาจ่ายทั้งห้อง (น้ำ/ไฟ)
+        share: Number,    // หารกันกี่คน
         amount: Number,
         _id: false
     }],
-    utilities_recorded: { type: Boolean, default: false }, // บันทึกมิเตอร์น้ำ/ไฟแล้วหรือยัง (จ่ายได้เมื่อ true)
     amount: { type: Number, required: true }, // ยอดรวมทุกรายการ
     due_date: Date,
     // UNPAID = ค้างชำระ, PAID = ชำระแล้ว รอ admin ตรวจสอบ, CONFIRMED = admin อนุมัติแล้ว
@@ -48,7 +50,7 @@ const invoiceSchema = new mongoose.Schema({
     created_at: { type: Date, default: Date.now }
 });
 
-// บิลของการจองหนึ่งรายการ มีได้เดือนละใบ
-invoiceSchema.index({ booking_id: 1, month: 1 }, { unique: true });
+// การจองหนึ่งรายการ มีบิลแต่ละประเภทได้เดือนละใบ
+invoiceSchema.index({ booking_id: 1, kind: 1, month: 1 }, { unique: true });
 
 export default mongoose.model('Invoice', invoiceSchema, 'invoices');

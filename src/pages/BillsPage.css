@@ -302,3 +302,29 @@
     width: 100%;
   }
 }
+
+/* ── ประเภทบิล ─────────────────────────────── */
+.bills-kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+  margin-bottom: 4px;
+}
+
+.bills-kind.rent {
+  background: #e6f4e6;
+  color: #2d7a2d;
+}
+
+.bills-kind.utility {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.bills-filters {
+  flex-wrap: wrap;
+}

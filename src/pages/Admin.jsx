@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { formatBaht, formatMonth, formatDate, currentMonthKey, formatItemLabel } from '../utils/format';
+import { formatBaht, formatMonth, formatDate, formatItemLabel, formatBillTitle } from '../utils/format';
 import './Admin.css';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
-const TABS = ['Dashboard', 'การจอง', 'ค่าห้องรายเดือน', 'ห้องพัก', 'นิสิต'];
+const TABS = ['Dashboard', 'การจอง', 'บิลรายเดือน', 'ห้องพัก', 'นิสิต'];
 
 const STATUS_LABEL = {
     PENDING: 'รอชำระเงิน',
@@ -18,6 +18,8 @@ const STATUS_LABEL = {
 };
 
 const REJECT_REASONS = ['ยอดเงินไม่ถูกต้อง', 'ไม่พบรายการชำระเงิน', 'ข้อมูลผู้จองไม่ตรงกับนิสิต'];
+
+const INVOICE_KIND_LABEL = { RENT: 'ค่าห้อง', UTILITY: 'ค่าน้ำ-ไฟ' };
 
 const INVOICE_STATUS_LABEL = {
     UNPAID: 'ค้างชำระ',
@@ -149,11 +151,11 @@ export default function Admin() {
     const [invoices, setInvoices] = useState([]);
     const [invoiceMonth, setInvoiceMonth] = useState('ALL'); // กรองตามเดือน
     const [invoiceStatusFilter, setInvoiceStatusFilter] = useState('ALL');
-    const [generateMonth, setGenerateMonth] = useState(currentMonthKey());
+    const [invoiceKindFilter, setInvoiceKindFilter] = useState('ALL');
     const [generating, setGenerating] = useState(false);
-    const [meterData, setMeterData] = useState(null); // { month, rates, rooms }
-    const [meterForm, setMeterForm] = useState({}); // room_id -> { water_prev, water_curr, elec_prev, elec_curr }
-    const [savingMeter, setSavingMeter] = useState(null); // room_id ที่กำลังบันทึก
+    const [feeForm, setFeeForm] = useState({}); // room_id -> { water_fee, electric_fee } ที่กำลังแก้
+    const [savingFee, setSavingFee] = useState(null); // room_id ที่กำลังบันทึก หรือ 'BULK'
+    const [bulkFee, setBulkFee] = useState({ water_fee: '', electric_fee: '' });
 
     const token = localStorage.getItem('adminToken');
 
@@ -216,18 +218,14 @@ export default function Admin() {
         alert(data.message);
     };
 
-    // ออกบิลค่าห้องประจำเดือนให้ทุกการจองที่ยืนยันแล้ว
-    const generateInvoices = async () => {
-        if (!generateMonth) return;
-        if (!confirm(`ออกบิลค่าห้องประจำเดือน ${formatMonth(generateMonth)} ให้นิสิตทุกคนที่การจองยืนยันแล้ว?`)) return;
+    // ออกบิลที่ถึงรอบตอนนี้เลย (ปกติระบบออกให้อัตโนมัติทุกชั่วโมง)
+    const runInvoiceGeneration = async () => {
         setGenerating(true);
         try {
-            const { data } = await axios.post(`${API_URL}/api/admin/invoices/generate`, { month: generateMonth });
-            alert(data.message);
+            const { data } = await axios.post(`${API_URL}/api/admin/invoices/generate`);
             const inv = await axios.get(`${API_URL}/api/admin/invoices`);
             setInvoices(inv.data);
-            setInvoiceMonth(generateMonth);
-            setInvoiceStatusFilter('ALL');
+            alert(data.message);
         } catch (err) {
             alert(err.response?.data?.message || 'เกิดข้อผิดพลาด');
         } finally {
@@ -235,53 +233,63 @@ export default function Admin() {
         }
     };
 
-    // โหลดห้องที่ต้องบันทึกมิเตอร์ของเดือนที่เลือก
-    const loadMeters = async (month) => {
-        try {
-            const { data } = await axios.get(`${API_URL}/api/admin/meters`, { params: { month } });
-            setMeterData(data);
-            const form = {};
-            for (const room of data.rooms) {
-                const r = room.reading;
-                form[room.room_id] = {
-                    water_prev: r?.water_prev ?? room.suggested_prev?.water ?? '',
-                    water_curr: r?.water_curr ?? '',
-                    elec_prev: r?.elec_prev ?? room.suggested_prev?.elec ?? '',
-                    elec_curr: r?.elec_curr ?? '',
-                };
-            }
-            setMeterForm(form);
-        } catch (err) {
-            setMeterData(null);
-        }
+    // ค่าน้ำ-ไฟเหมาจ่ายของห้อง (ค่าที่กำลังแก้ หรือค่าที่บันทึกไว้)
+    const feeValue = (room, key) => feeForm[room._id]?.[key] ?? room[key] ?? 0;
+    const setFeeValue = (roomId, key, value) =>
+        setFeeForm(prev => ({ ...prev, [roomId]: { ...prev[roomId], [key]: value } }));
+    const feeChanged = (room) => ['water_fee', 'electric_fee']
+        .some(k => feeForm[room._id]?.[k] !== undefined && Number(feeForm[room._id][k]) !== Number(room[k] || 0));
+
+    const putFees = async (roomId, fees) => {
+        const { data } = await axios.put(`${API_URL}/api/admin/rooms/${roomId}/fees`, fees);
+        setRooms(prev => prev.map(r => r._id === roomId ? { ...r, water_fee: data.room.water_fee, electric_fee: data.room.electric_fee } : r));
+        setFeeForm(prev => { const next = { ...prev }; delete next[roomId]; return next; });
+        return data;
     };
 
-    useEffect(() => {
-        if (tab === 'ค่าห้องรายเดือน' && generateMonth) loadMeters(generateMonth);
-    }, [tab, generateMonth]);
-
-    const setMeterValue = (roomId, key, value) =>
-        setMeterForm(prev => ({ ...prev, [roomId]: { ...prev[roomId], [key]: value } }));
-
-    const saveMeter = async (room) => {
-        setSavingMeter(room.room_id);
+    const saveFees = async (room) => {
+        setSavingFee(room._id);
         try {
-            const { data } = await axios.put(`${API_URL}/api/admin/meters`, {
-                room_id: room.room_id, month: generateMonth, ...meterForm[room.room_id]
+            const data = await putFees(room._id, {
+                water_fee: feeValue(room, 'water_fee'),
+                electric_fee: feeValue(room, 'electric_fee'),
             });
-            const updated = new Map(data.invoices.map(i => [i._id, i]));
-            setInvoices(prev => prev.map(i => updated.get(i._id) || i));
-            await loadMeters(generateMonth);
+            const inv = await axios.get(`${API_URL}/api/admin/invoices`);
+            setInvoices(inv.data);
             alert(data.message);
         } catch (err) {
             alert(err.response?.data?.message || 'บันทึกไม่สำเร็จ');
         } finally {
-            setSavingMeter(null);
+            setSavingFee(null);
+        }
+    };
+
+    // ตั้งค่าน้ำ-ไฟให้ทุกห้องที่แสดงอยู่ (ตามคำค้นหา)
+    const saveBulkFees = async (targetRooms) => {
+        if (bulkFee.water_fee === '' || bulkFee.electric_fee === '') {
+            alert('กรุณากรอกค่าน้ำและค่าไฟ');
+            return;
+        }
+        if (!confirm(`ตั้งค่าน้ำ ${bulkFee.water_fee} บาท และค่าไฟ ${bulkFee.electric_fee} บาท ต่อเดือน ให้ ${targetRooms.length} ห้อง?`)) return;
+        setSavingFee('BULK');
+        let ok = 0;
+        try {
+            for (const room of targetRooms) {
+                await putFees(room._id, bulkFee);
+                ok++;
+            }
+            const inv = await axios.get(`${API_URL}/api/admin/invoices`);
+            setInvoices(inv.data);
+            alert(`ตั้งค่าน้ำ-ไฟแล้ว ${ok} ห้อง`);
+        } catch (err) {
+            alert(`บันทึกได้ ${ok} ห้อง แล้วเกิดข้อผิดพลาด: ` + (err.response?.data?.message || err.message));
+        } finally {
+            setSavingFee(null);
         }
     };
 
     const openPaidInvoices = () => {
-        setTab('ค่าห้องรายเดือน');
+        setTab('บิลรายเดือน');
         setInvoiceMonth('ALL');
         setInvoiceStatusFilter('PAID');
         fetchAll();
@@ -388,7 +396,7 @@ export default function Admin() {
                         {t === 'การจอง' && paidCount > 0 && (
                             <span className="ad-tab-badge" title="รอตรวจสอบการชำระเงิน">{paidCount}</span>
                         )}
-                        {t === 'ค่าห้องรายเดือน' && paidInvoiceCount > 0 && (
+                        {t === 'บิลรายเดือน' && paidInvoiceCount > 0 && (
                             <span className="ad-tab-badge" title="รอตรวจสอบการชำระค่าห้อง">{paidInvoiceCount}</span>
                         )}
                     </button>
@@ -631,9 +639,10 @@ export default function Admin() {
                 })()}
 
                 {/* === TAB: ค่าห้องรายเดือน === */}
-                {tab === 'ค่าห้องรายเดือน' && (() => {
+                {tab === 'บิลรายเดือน' && (() => {
                     const months = [...new Set(invoices.map(i => i.month))].sort().reverse();
-                    const inMonth = invoices.filter(i => invoiceMonth === 'ALL' || i.month === invoiceMonth);
+                    const inMonth = invoices.filter(i => (invoiceMonth === 'ALL' || i.month === invoiceMonth)
+                        && (invoiceKindFilter === 'ALL' || (i.kind || 'RENT') === invoiceKindFilter));
                     const filtered = inMonth.filter(i => invoiceStatusFilter === 'ALL' || i.status === invoiceStatusFilter);
                     const sumOf = (list) => list.reduce((s, i) => s + i.amount, 0);
                     const unpaid = inMonth.filter(i => i.status === 'UNPAID');
@@ -646,12 +655,18 @@ export default function Admin() {
                         <div>
                             <div className="ad-section-header">
                                 <h2 className="ad-section-title">
-                                    ค่าห้องรายเดือน <span className="ad-count-badge">{filtered.length}</span>
+                                    บิลรายเดือน <span className="ad-count-badge">{filtered.length}</span>
                                 </h2>
                                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                                     <select className="ad-select" value={invoiceMonth} onChange={e => setInvoiceMonth(e.target.value)} aria-label="กรองตามเดือน">
                                         <option value="ALL">ทุกเดือน</option>
                                         {months.map(m => <option key={m} value={m}>{formatMonth(m)}</option>)}
+                                    </select>
+                                    <select className="ad-select" value={invoiceKindFilter} onChange={e => setInvoiceKindFilter(e.target.value)} aria-label="กรองตามประเภทบิล">
+                                        <option value="ALL">ทุกประเภท</option>
+                                        {Object.entries(INVOICE_KIND_LABEL).map(([key, label]) => (
+                                            <option key={key} value={key}>{label}</option>
+                                        ))}
                                     </select>
                                     <select className="ad-select" value={invoiceStatusFilter} onChange={e => setInvoiceStatusFilter(e.target.value)} aria-label="กรองตามสถานะ">
                                         <option value="ALL">ทุกสถานะ</option>
@@ -664,101 +679,15 @@ export default function Admin() {
 
                             <div className="ad-generate-card">
                                 <div>
-                                    <strong>ออกบิลประจำเดือน</strong>
-                                    <p>ออกบิลให้ทุกการจองที่ยืนยันแล้ว (ไม่รวมเดือนแรกที่ชำระตอนจอง และไม่ออกซ้ำถ้ามีบิลเดือนนั้นแล้ว) กำหนดชำระวันที่ 10</p>
+                                    <strong>ระบบออกบิลอัตโนมัติ</strong>
+                                    <p>
+                                        ค่าห้อง: ครบกำหนดทุกเดือนตามวันที่จองของแต่ละคน ออกบิลล่วงหน้า 7 วัน ·
+                                        ค่าน้ำ-ไฟ: เหมาจ่ายตามที่ตั้งไว้ในแท็บ "ห้องพัก" หารเท่ากันตามจำนวนผู้พัก ครบกำหนดสิ้นเดือน
+                                    </p>
                                 </div>
-                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                    <input
-                                        type="month"
-                                        className="ad-select"
-                                        value={generateMonth}
-                                        onChange={e => setGenerateMonth(e.target.value)}
-                                        aria-label="เดือนที่จะออกบิล"
-                                    />
-                                    <button className="ad-btn approve lg" onClick={generateInvoices} disabled={generating || !generateMonth}>
-                                        {generating ? 'กำลังออกบิล...' : 'ออกบิล'}
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div className="ad-meter-card">
-                                <div className="ad-meter-head">
-                                    <strong>บันทึกมิเตอร์น้ำ-ไฟ เดือน {formatMonth(generateMonth)}</strong>
-                                    {meterData && (
-                                        <span>ค่าน้ำ {meterData.rates.water} บาท/หน่วย · ค่าไฟ {meterData.rates.electric} บาท/หน่วย · หารเท่ากันตามจำนวนผู้พัก</span>
-                                    )}
-                                </div>
-                                {!meterData || meterData.rooms.length === 0 ? (
-                                    <p className="ad-meter-empty">ยังไม่มีบิลเดือนนี้ กดออกบิลก่อน แล้วจึงบันทึกมิเตอร์ของแต่ละห้อง</p>
-                                ) : (
-                                    <div className="ad-table-wrap">
-                                        <table className="ad-table ad-meter-table">
-                                            <thead>
-                                                <tr>
-                                                    <th>ห้อง</th>
-                                                    <th>ผู้พัก</th>
-                                                    <th>💧 น้ำ (เดิม → ใหม่)</th>
-                                                    <th>⚡ ไฟ (เดิม → ใหม่)</th>
-                                                    <th>ยอดน้ำ+ไฟ ทั้งห้อง</th>
-                                                    <th></th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {meterData.rooms.map(room => {
-                                                    const v = meterForm[room.room_id] || {};
-                                                    const wUnits = Number(v.water_curr) - Number(v.water_prev);
-                                                    const eUnits = Number(v.elec_curr) - Number(v.elec_prev);
-                                                    const filled = ['water_prev', 'water_curr', 'elec_prev', 'elec_curr'].every(k => v[k] !== '' && v[k] !== undefined);
-                                                    const preview = filled && wUnits >= 0 && eUnits >= 0
-                                                        ? wUnits * meterData.rates.water + eUnits * meterData.rates.electric
-                                                        : null;
-                                                    const input = (key) => (
-                                                        <input
-                                                            type="number"
-                                                            min="0"
-                                                            className="ad-meter-input"
-                                                            value={v[key] ?? ''}
-                                                            onChange={e => setMeterValue(room.room_id, key, e.target.value)}
-                                                            disabled={room.locked || savingMeter === room.room_id}
-                                                            aria-label={key}
-                                                        />
-                                                    );
-                                                    return (
-                                                        <tr key={room.room_id}>
-                                                            <td><strong>{room.room_number}</strong></td>
-                                                            <td style={{ fontSize: '12px' }}>{room.occupants.length} คน</td>
-                                                            <td><div className="ad-meter-pair">{input('water_prev')}<span>→</span>{input('water_curr')}</div></td>
-                                                            <td><div className="ad-meter-pair">{input('elec_prev')}<span>→</span>{input('elec_curr')}</div></td>
-                                                            <td>
-                                                                {preview !== null ? (
-                                                                    <span>
-                                                                        {formatBaht(preview)} บาท
-                                                                        <small style={{ display: 'block', color: 'var(--gray-400)' }}>
-                                                                            คนละ {formatBaht(preview / room.occupants.length)}
-                                                                        </small>
-                                                                    </span>
-                                                                ) : '-'}
-                                                            </td>
-                                                            <td>
-                                                                {room.locked ? (
-                                                                    <span className="ad-pill confirmed">มีคนชำระแล้ว</span>
-                                                                ) : (
-                                                                    <button
-                                                                        className="ad-btn approve"
-                                                                        onClick={() => saveMeter(room)}
-                                                                        disabled={!filled || savingMeter === room.room_id}
-                                                                    >
-                                                                        {savingMeter === room.room_id ? 'กำลังบันทึก...' : room.reading ? 'แก้ไข' : 'บันทึก'}
-                                                                    </button>
-                                                                )}
-                                                            </td>
-                                                        </tr>
-                                                    );
-                                                })}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                )}
+                                <button className="ad-btn approve lg" onClick={runInvoiceGeneration} disabled={generating}>
+                                    {generating ? 'กำลังตรวจสอบ...' : 'ออกบิลที่ถึงรอบตอนนี้'}
+                                </button>
                             </div>
 
                             <div className="ad-invoice-stats">
@@ -771,7 +700,7 @@ export default function Admin() {
                                 <table className="ad-table">
                                     <thead>
                                         <tr>
-                                            <th>เดือน</th>
+                                            <th>บิล</th>
                                             <th>รหัสนิสิต</th>
                                             <th>ชื่อ-สกุล</th>
                                             <th>ห้อง</th>
@@ -784,11 +713,16 @@ export default function Admin() {
                                     </thead>
                                     <tbody>
                                         {filtered.length === 0 && (
-                                            <tr><td colSpan="9" style={{ textAlign: 'center', color: 'var(--gray-400)' }}>ไม่มีบิล</td></tr>
+                                            <tr><td colSpan="9" style={{ textAlign: 'center', color: 'var(--gray-400)' }}>ไม่มีบิล (ค่าห้องจะออกล่วงหน้า 7 วันก่อนครบกำหนด ค่าน้ำ-ไฟออกเมื่อห้องตั้งค่าเหมาจ่ายแล้ว)</td></tr>
                                         )}
                                         {filtered.map(i => (
                                             <tr key={i._id}>
-                                                <td>{formatMonth(i.month)}</td>
+                                                <td>
+                                                    <span className={`ad-kind ${(i.kind || 'RENT') === 'UTILITY' ? 'utility' : 'rent'}`}>
+                                                        {INVOICE_KIND_LABEL[i.kind || 'RENT']}
+                                                    </span>
+                                                    <div style={{ fontSize: '12px', color: 'var(--gray-500)' }}>{formatBillTitle(i).replace(/^ค่า(ห้อง|น้ำ-ไฟ) /, '')}</div>
+                                                </td>
                                                 <td>{i.student_code}</td>
                                                 <td><strong>{i.full_name}</strong></td>
                                                 <td>{i.room_number}</td>
@@ -796,9 +730,8 @@ export default function Admin() {
                                                     <strong>{formatBaht(i.amount)}</strong>
                                                     <div style={{ fontSize: '11px', color: 'var(--gray-500)', lineHeight: 1.5 }}>
                                                         {(i.items || []).map(it => (
-                                                            <div key={it.type}>{it.label} {formatBaht(it.amount)}</div>
+                                                            <div key={it.type}>{formatItemLabel(it)} {formatBaht(it.amount)}</div>
                                                         ))}
-                                                        {!i.utilities_recorded && <div style={{ color: '#b45309' }}>รอบันทึกมิเตอร์</div>}
                                                     </div>
                                                 </td>
                                                 <td>{formatDate(i.due_date)}</td>
@@ -859,6 +792,20 @@ export default function Admin() {
                                     onChange={e => setSearchRoom(e.target.value)}
                                 />
                             </div>
+
+                            <div className="ad-generate-card">
+                                <div>
+                                    <strong>ค่าน้ำ-ค่าไฟเหมาจ่าย (บาท/เดือน ทั้งห้อง)</strong>
+                                    <p>ตั้งทีละห้องได้ในตาราง หรือตั้งให้ทุกห้องที่แสดงอยู่ (ใช้ช่องค้นหาเลือกอาคารก่อนได้) · ระบบหารเท่ากันตามจำนวนผู้พัก</p>
+                                </div>
+                                <div className="ad-fee-bulk">
+                                    <label>💧 <input type="number" min="0" className="ad-fee-input" placeholder="น้ำ" value={bulkFee.water_fee} onChange={e => setBulkFee(p => ({ ...p, water_fee: e.target.value }))} aria-label="ค่าน้ำทุกห้อง" /></label>
+                                    <label>⚡ <input type="number" min="0" className="ad-fee-input" placeholder="ไฟ" value={bulkFee.electric_fee} onChange={e => setBulkFee(p => ({ ...p, electric_fee: e.target.value }))} aria-label="ค่าไฟทุกห้อง" /></label>
+                                    <button className="ad-btn approve lg" onClick={() => saveBulkFees(filtered)} disabled={savingFee !== null || filtered.length === 0}>
+                                        {savingFee === 'BULK' ? 'กำลังบันทึก...' : `ใช้กับ ${filtered.length} ห้อง`}
+                                    </button>
+                                </div>
+                            </div>
                             <div className="ad-table-wrap">
                                 <table className="ad-table">
                                     <thead>
@@ -867,6 +814,7 @@ export default function Admin() {
                                             <th>อาคาร</th>
                                             <th>ประเภท</th>
                                             <th>เครื่องทำความเย็น</th>
+                                            <th>ค่าน้ำ / ค่าไฟ (บาท/เดือน)</th>
                                             <th>สถานะ</th>
                                             <th>จัดการ</th>
                                         </tr>
@@ -878,6 +826,17 @@ export default function Admin() {
                                                 <td>{r.building_id?.building_name || '-'}</td>
                                                 <td>{r.type_id?.type_name || '-'}</td>
                                                 <td>{r.type_id?.cooling_type || '-'}</td>
+                                                <td>
+                                                    <div className="ad-fee-row">
+                                                        <input type="number" min="0" className="ad-fee-input" value={feeValue(r, 'water_fee')} onChange={e => setFeeValue(r._id, 'water_fee', e.target.value)} aria-label={`ค่าน้ำห้อง ${r.room_number}`} title="ค่าน้ำ" />
+                                                        <input type="number" min="0" className="ad-fee-input" value={feeValue(r, 'electric_fee')} onChange={e => setFeeValue(r._id, 'electric_fee', e.target.value)} aria-label={`ค่าไฟห้อง ${r.room_number}`} title="ค่าไฟ" />
+                                                        {feeChanged(r) && (
+                                                            <button className="ad-btn approve" onClick={() => saveFees(r)} disabled={savingFee !== null}>
+                                                                {savingFee === r._id ? '...' : 'บันทึก'}
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </td>
                                                 <td>
                                                     <select
                                                         value={r.status}

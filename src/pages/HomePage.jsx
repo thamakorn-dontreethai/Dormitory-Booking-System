@@ -105,7 +105,7 @@ export default function HomePage() {
   const maleCount = stats.filter(b => b.gender_type === 'MALE').length;
   const femaleCount = stats.filter(b => b.gender_type === 'FEMALE').length;
 
-  const unpaidBills = (bills || []).filter(b => b.status === 'UNPAID' && b.utilities_recorded);
+  const unpaidBills = (bills || []).filter(b => b.status === 'UNPAID');
   const unpaidTotal = unpaidBills.reduce((s, b) => s + b.amount, 0);
   const bookingStatus = booking && BOOKING_STATUS[booking.status];
 

@@ -11,7 +11,6 @@ import Building from './models/Building.js';
 import RoomType from './models/RoomType.js';
 import Admin from './models/Admin.js';
 import Invoice from './models/Invoice.js';
-import MeterReading from './models/MeterReading.js';
 
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -640,70 +639,177 @@ app.post('/api/admin/reservations/:id/review', verifyAdmin, async (req, res) => 
     }
 });
 
-// ===== ค่าห้องรายเดือน (Invoices) =====
+// ===== บิลรายเดือน: ค่าห้อง (ตามวันที่จอง) + ค่าน้ำ-ค่าไฟ (เหมาจ่ายต่อห้อง) =====
 
 const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
+const DAY_MS = 24 * 60 * 60 * 1000;
+const RENT_ISSUE_DAYS_BEFORE = 7; // ออกบิลค่าห้องล่วงหน้ากี่วันก่อนครบกำหนด
 
 // Date -> 'YYYY-MM' (ตามเวลาเครื่อง server)
 const toMonthKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 
-// กำหนดชำระ: วันที่ 10 ของเดือนนั้น สิ้นวัน
-const dueDateOf = (month) => {
-    const [y, m] = month.split('-').map(Number);
-    return new Date(y, m - 1, 10, 23, 59, 59);
+// บวกเดือนโดยคงวันที่เดิม ถ้าเดือนนั้นไม่มีวันนั้นใช้วันสุดท้ายของเดือน (31 ม.ค. + 1 เดือน = 28/29 ก.พ.)
+const addMonths = (date, n) => {
+    const d = new Date(date);
+    const target = new Date(d.getFullYear(), d.getMonth() + n, 1);
+    const lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+    return new Date(target.getFullYear(), target.getMonth(), Math.min(d.getDate(), lastDay));
 };
+
+const endOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59);
+const monthStartOf = (month) => { const [y, m] = month.split('-').map(Number); return new Date(y, m - 1, 1); };
+const monthEndOf = (month) => { const [y, m] = month.split('-').map(Number); return new Date(y, m, 0, 23, 59, 59); };
 
 const isOverdue = (invoice) => invoice.status === 'UNPAID' && invoice.due_date && invoice.due_date < new Date();
 
-// อัตราค่าน้ำ/ไฟ (บาทต่อหน่วย) ตั้งค่าได้ใน .env
-const WATER_RATE = Number(process.env.WATER_RATE) || 18;
-const ELECTRIC_RATE = Number(process.env.ELECTRIC_RATE) || 8;
-
 const round2 = (n) => Math.round(n * 100) / 100;
+const sumItems = (items) => round2(items.reduce((s, it) => s + it.amount, 0));
 
 const rentItem = (amount) => ({ type: 'RENT', label: 'ค่าห้องพัก', amount });
 
-// รายการค่าน้ำ/ไฟของนิสิต 1 คน: หน่วยที่ใช้ทั้งห้อง × อัตรา ÷ จำนวนคนในห้อง
-const utilityItems = (reading, share) => {
-    const waterUnits = reading.water_curr - reading.water_prev;
-    const elecUnits = reading.elec_curr - reading.elec_prev;
-    return [
-        { type: 'WATER', label: 'ค่าน้ำ', units: waterUnits, rate: WATER_RATE, share, amount: round2(waterUnits * WATER_RATE / share) },
-        { type: 'ELECTRIC', label: 'ค่าไฟ', units: elecUnits, rate: ELECTRIC_RATE, share, amount: round2(elecUnits * ELECTRIC_RATE / share) }
-    ];
+// ค่าน้ำ/ไฟของนิสิต 1 คน = ค่าเหมาจ่ายของห้อง ÷ จำนวนผู้พัก
+const utilityItems = (room, share) => [
+    { type: 'WATER', label: 'ค่าน้ำ (เหมาจ่าย)', room_fee: room.water_fee || 0, share, amount: round2((room.water_fee || 0) / share) },
+    { type: 'ELECTRIC', label: 'ค่าไฟ (เหมาจ่าย)', room_fee: room.electric_fee || 0, share, amount: round2((room.electric_fee || 0) / share) }
+].filter(it => it.room_fee > 0);
+
+const isDuplicateKey = (err) => err?.code === 11000;
+
+// ออกบิลที่ถึงรอบแล้ว (ไม่ออกย้อนหลังก่อนเดือนปัจจุบัน)
+// - ค่าห้อง: รอบที่ n เริ่ม start_date + n เดือน, ออกล่วงหน้า RENT_ISSUE_DAYS_BEFORE วัน, ครบกำหนดวันเริ่มรอบ
+// - ค่าน้ำ-ไฟ: เดือนปัจจุบัน สำหรับห้องที่ตั้งค่าเหมาจ่ายไว้ (ไม่รวมเดือนแรกที่จอง) ครบกำหนดสิ้นเดือน
+const generateDueInvoices = async (now = new Date()) => {
+    const thisMonth = toMonthKey(now);
+    const issueUntil = new Date(now.getTime() + RENT_ISSUE_DAYS_BEFORE * DAY_MS);
+    const bookings = await Booking.find({ status: 'CONFIRMED' })
+        .populate({ path: 'room_id', populate: { path: 'type_id', select: 'monthly_price' } });
+
+    let rentCreated = 0;
+    let utilityCreated = 0;
+    const roomGroups = new Map(); // room_id -> { room, bookings } สำหรับค่าน้ำ-ไฟเดือนนี้
+
+    for (const b of bookings) {
+        if (!b.room_id || !b.start_date || !b.end_date) continue;
+        const base = {
+            booking_id: b._id,
+            student_id: b.student_id,
+            student_code: b.student_code,
+            full_name: b.full_name,
+            room_id: b.room_id._id,
+            room_number: b.room_number
+        };
+
+        // --- ค่าห้อง ---
+        const rent = Number(b.room_id.type_id?.monthly_price?.toString() || 0);
+        for (let n = 1; ; n++) {
+            const periodStart = addMonths(b.start_date, n);
+            if (periodStart >= b.end_date || periodStart > issueUntil) break;
+            const month = toMonthKey(periodStart);
+            if (month < thisMonth) continue; // ไม่ออกย้อนหลัง
+            if (await Invoice.exists({ booking_id: b._id, kind: 'RENT', month })) continue;
+            try {
+                await Invoice.create({
+                    ...base,
+                    kind: 'RENT',
+                    month,
+                    period_start: periodStart,
+                    period_end: new Date(addMonths(b.start_date, n + 1).getTime() - DAY_MS),
+                    items: [rentItem(rent)],
+                    amount: rent,
+                    due_date: endOfDay(periodStart)
+                });
+                rentCreated++;
+            } catch (err) {
+                if (!isDuplicateKey(err)) throw err;
+            }
+        }
+
+        // --- ผู้พักที่ต้องจ่ายค่าน้ำ-ไฟเดือนนี้ ---
+        if (toMonthKey(b.start_date) < thisMonth && toMonthKey(b.end_date) >= thisMonth) {
+            const key = String(b.room_id._id);
+            if (!roomGroups.has(key)) roomGroups.set(key, { room: b.room_id, bookings: [] });
+            roomGroups.get(key).bookings.push({ b, base });
+        }
+    }
+
+    // --- ค่าน้ำ-ไฟ ---
+    for (const { room, bookings: group } of roomGroups.values()) {
+        const items = utilityItems(room, group.length);
+        if (!items.length) continue; // ห้องนี้ยังไม่ได้ตั้งค่าน้ำ-ไฟ
+        for (const { b, base } of group) {
+            if (await Invoice.exists({ booking_id: b._id, kind: 'UTILITY', month: thisMonth })) continue;
+            try {
+                await Invoice.create({
+                    ...base,
+                    kind: 'UTILITY',
+                    month: thisMonth,
+                    period_start: monthStartOf(thisMonth),
+                    period_end: monthEndOf(thisMonth),
+                    items,
+                    amount: sumItems(items),
+                    due_date: monthEndOf(thisMonth)
+                });
+                utilityCreated++;
+            } catch (err) {
+                if (!isDuplicateKey(err)) throw err;
+            }
+        }
+    }
+
+    return { rent: rentCreated, utility: utilityCreated };
 };
 
-// ใส่ค่าน้ำ/ไฟจากมิเตอร์ให้บิลที่ยังไม่ชำระของห้องนั้นในเดือนนั้น (หารเท่ากันตามจำนวนบิลในห้อง)
-const applyMeterToInvoices = async (reading) => {
-    const invoices = await Invoice.find({ room_id: reading.room_id, month: reading.month });
-    const share = invoices.length;
-    for (const inv of invoices.filter(i => i.status === 'UNPAID')) {
-        const rent = inv.items.find(it => it.type === 'RENT') || rentItem(inv.amount);
-        const items = [rent, ...utilityItems(reading, share)];
+// เรียกก่อนแสดงบิล: รันไม่เกินนาทีละครั้ง และไม่รันซ้อนกัน
+let lastInvoiceRun = 0;
+let invoiceRun = null;
+const ensureInvoicesUpToDate = (force = false) => {
+    if (invoiceRun) return invoiceRun;
+    if (!force && Date.now() - lastInvoiceRun < 60 * 1000) return Promise.resolve(null);
+    invoiceRun = generateDueInvoices()
+        .catch(err => { console.error('generateDueInvoices:', err.message); return null; })
+        .finally(() => { lastInvoiceRun = Date.now(); invoiceRun = null; });
+    return invoiceRun;
+};
+
+// ค่าน้ำ-ไฟของห้องเปลี่ยน: คิดบิลค่าน้ำ-ไฟที่ยังไม่ชำระของห้องนั้นใหม่
+const refreshRoomUtilityInvoices = async (room) => {
+    const unpaid = await Invoice.find({ room_id: room._id, kind: 'UTILITY', status: 'UNPAID' });
+    let updated = 0;
+    let removed = 0;
+    for (const inv of unpaid) {
+        const share = await Invoice.countDocuments({ room_id: room._id, kind: 'UTILITY', month: inv.month });
+        const items = utilityItems(room, share);
+        if (!items.length) {
+            await inv.deleteOne(); // ตั้งค่าเป็น 0 ทั้งคู่ = ไม่เก็บค่าน้ำ-ไฟ
+            removed++;
+            continue;
+        }
         inv.items = items;
-        inv.amount = round2(items.reduce((s, it) => s + it.amount, 0));
-        inv.utilities_recorded = true;
+        inv.amount = sumItems(items);
         await inv.save();
+        updated++;
     }
-    return invoices.length;
+    return { updated, removed };
 };
 
 // ข้อมูลบิลสำหรับแสดงผล/ชำระเงิน (รูปแบบเดียวกับ getPaymentSummary)
 const getInvoiceSummary = async (invoice, { withRoom = true } = {}) => {
     let building_name, type_name;
     if (withRoom) {
-        const booking = await Booking.findById(invoice.booking_id).populate({
-            path: 'room_id',
-            populate: [{ path: 'type_id', select: 'type_name' }, { path: 'building_id', select: 'building_name' }]
-        });
-        building_name = booking?.room_id?.building_id?.building_name;
-        type_name = booking?.room_id?.type_id?.type_name;
+        const room = await Room.findById(invoice.room_id)
+            .populate('type_id', 'type_name')
+            .populate('building_id', 'building_name');
+        building_name = room?.building_id?.building_name;
+        type_name = room?.type_id?.type_name;
     }
     const lastRejection = invoice.rejections?.length ? invoice.rejections[invoice.rejections.length - 1] : null;
     return {
         kind: 'INVOICE',
+        invoice_kind: invoice.kind || 'RENT',
         invoice_id: invoice._id,
         month: invoice.month,
+        period_start: invoice.period_start,
+        period_end: invoice.period_end,
         room_number: invoice.room_number,
         building_name,
         type_name,
@@ -711,7 +817,6 @@ const getInvoiceSummary = async (invoice, { withRoom = true } = {}) => {
         due_date: invoice.due_date,
         overdue: isOverdue(invoice),
         items: invoice.items?.length ? invoice.items : [rentItem(invoice.amount)],
-        utilities_recorded: !!invoice.utilities_recorded,
         amount: invoice.amount,
         payment: invoice.payment?.ref ? { ...invoice.payment.toObject(), amount: invoice.amount } : null,
         review: invoice.review?.action ? invoice.review : null,
@@ -719,10 +824,11 @@ const getInvoiceSummary = async (invoice, { withRoom = true } = {}) => {
     };
 };
 
-// --- GET /api/my-invoices (บิลค่าห้องของฉัน) ---
+// --- GET /api/my-invoices (บิลของฉัน: ค่าห้อง + ค่าน้ำ-ไฟ) ---
 app.get('/api/my-invoices', verifyToken, async (req, res) => {
     try {
-        const invoices = await Invoice.find({ student_id: req.user.id }).sort({ month: 1 }); // เดือนเก่าก่อน จ่ายบิลที่ค้างนานก่อน
+        await ensureInvoicesUpToDate();
+        const invoices = await Invoice.find({ student_id: req.user.id }).sort({ due_date: 1 }); // ครบกำหนดก่อนอยู่ก่อน
         res.json(await Promise.all(invoices.map(inv => getInvoiceSummary(inv, { withRoom: false }))));
     } catch (err) {
         res.status(500).json({ message: 'เกิดข้อผิดพลาด', error: err.message });
@@ -741,7 +847,7 @@ app.get('/api/my-invoices/:id', verifyToken, async (req, res) => {
     }
 });
 
-// --- POST /api/my-invoices/:id/pay (ชำระบิลรายเดือน) ---
+// --- POST /api/my-invoices/:id/pay (ชำระบิล) ---
 app.post('/api/my-invoices/:id/pay', verifyToken, async (req, res) => {
     const input = validatePaymentInput(req.body);
     if (input.error) return res.status(input.status).json({ message: input.error });
@@ -752,9 +858,6 @@ app.post('/api/my-invoices/:id/pay', verifyToken, async (req, res) => {
         if (!invoice) return res.status(404).json({ message: 'ไม่พบบิล' });
         if (invoice.status !== 'UNPAID') {
             return res.status(400).json({ message: 'บิลนี้ชำระแล้ว' });
-        }
-        if (!invoice.utilities_recorded) {
-            return res.status(400).json({ message: 'บิลยังไม่สมบูรณ์ รอเจ้าหน้าที่บันทึกค่าน้ำ-ค่าไฟ' });
         }
 
         invoice.status = 'PAID'; // รอ admin ตรวจสอบ
@@ -777,149 +880,18 @@ app.post('/api/my-invoices/:id/pay', verifyToken, async (req, res) => {
     }
 });
 
-// --- POST /api/admin/invoices/generate (ออกบิลประจำเดือน) ---
-// body: { month: 'YYYY-MM' } ออกบิลให้ทุกการจองที่ยืนยันแล้ว และเดือนนั้นอยู่ในสัญญา (ไม่รวมเดือนแรกที่จ่ายตอนจอง)
+// --- POST /api/admin/invoices/generate (ออกบิลที่ถึงรอบตอนนี้เลย ปกติระบบออกให้อัตโนมัติ) ---
 app.post('/api/admin/invoices/generate', verifyAdmin, async (req, res) => {
-    const month = String(req.body.month || '');
-    if (!MONTH_PATTERN.test(month)) {
-        return res.status(400).json({ message: 'รูปแบบเดือนไม่ถูกต้อง (YYYY-MM)' });
-    }
-
     try {
-        const bookings = await Booking.find({ status: 'CONFIRMED' })
-            .populate({ path: 'room_id', populate: { path: 'type_id', select: 'monthly_price' } });
-
-        let created = 0, existed = 0, outOfContract = 0;
-        const touchedRooms = new Set();
-        for (const b of bookings) {
-            const startMonth = toMonthKey(b.start_date);
-            const endMonth = toMonthKey(b.end_date);
-            // เดือนแรก (startMonth) ชำระไปแล้วตอนจอง
-            if (month <= startMonth || month > endMonth) { outOfContract++; continue; }
-            if (await Invoice.exists({ booking_id: b._id, month })) { existed++; continue; }
-
-            const rent = Number(b.room_id?.type_id?.monthly_price?.toString() || 0);
-            await Invoice.create({
-                booking_id: b._id,
-                student_id: b.student_id,
-                student_code: b.student_code,
-                full_name: b.full_name,
-                room_id: b.room_id?._id,
-                room_number: b.room_number,
-                month,
-                items: [rentItem(rent)],
-                amount: rent,
-                due_date: dueDateOf(month)
-            });
-            created++;
-            if (b.room_id?._id) touchedRooms.add(String(b.room_id._id));
-        }
-
-        // ถ้าห้องไหนบันทึกมิเตอร์เดือนนี้ไว้แล้ว ให้คิดค่าน้ำ/ไฟใหม่ (จำนวนคนหารเปลี่ยน)
-        for (const roomId of touchedRooms) {
-            const reading = await MeterReading.findOne({ room_id: roomId, month });
-            if (reading) await applyMeterToInvoices(reading);
-        }
-
+        const result = await ensureInvoicesUpToDate(true);
+        const rent = result?.rent || 0;
+        const utility = result?.utility || 0;
         res.json({
-            message: created
-                ? `ออกบิลเดือน ${month} แล้ว ${created} รายการ`
-                : `ไม่มีบิลใหม่สำหรับเดือน ${month}`,
-            created,
-            existed,
-            out_of_contract: outOfContract
-        });
-    } catch (err) {
-        res.status(500).json({ message: 'เกิดข้อผิดพลาด', error: err.message });
-    }
-});
-
-// --- GET /api/admin/meters?month=YYYY-MM (ห้องที่มีบิลเดือนนั้น + เลขมิเตอร์) ---
-app.get('/api/admin/meters', verifyAdmin, async (req, res) => {
-    const month = String(req.query.month || '');
-    if (!MONTH_PATTERN.test(month)) {
-        return res.status(400).json({ message: 'รูปแบบเดือนไม่ถูกต้อง (YYYY-MM)' });
-    }
-    try {
-        const invoices = await Invoice.find({ month, room_id: { $ne: null } });
-        const rooms = new Map();
-        for (const inv of invoices) {
-            const key = String(inv.room_id);
-            if (!rooms.has(key)) rooms.set(key, { room_id: inv.room_id, room_number: inv.room_number, occupants: [], locked: false });
-            const room = rooms.get(key);
-            room.occupants.push(inv.full_name);
-            if (inv.status !== 'UNPAID') room.locked = true; // มีคนชำระแล้ว แก้มิเตอร์ไม่ได้
-        }
-
-        const result = [];
-        for (const room of rooms.values()) {
-            const reading = await MeterReading.findOne({ room_id: room.room_id, month });
-            // เลขเดิมตั้งต้น = เลขล่าสุดของเดือนก่อนหน้า
-            const previous = await MeterReading.findOne({ room_id: room.room_id, month: { $lt: month } }).sort({ month: -1 });
-            result.push({
-                ...room,
-                reading,
-                suggested_prev: previous ? { water: previous.water_curr, elec: previous.elec_curr } : null
-            });
-        }
-        result.sort((a, b) => String(a.room_number).localeCompare(String(b.room_number), undefined, { numeric: true }));
-
-        res.json({ month, rates: { water: WATER_RATE, electric: ELECTRIC_RATE }, rooms: result });
-    } catch (err) {
-        res.status(500).json({ message: 'เกิดข้อผิดพลาด', error: err.message });
-    }
-});
-
-// --- PUT /api/admin/meters (บันทึกมิเตอร์ห้อง แล้วคิดค่าน้ำ/ไฟลงบิลของทุกคนในห้อง) ---
-// body: { room_id, month, water_prev, water_curr, elec_prev, elec_curr }
-app.put('/api/admin/meters', verifyAdmin, async (req, res) => {
-    const { room_id } = req.body;
-    const month = String(req.body.month || '');
-    if (!MONTH_PATTERN.test(month)) {
-        return res.status(400).json({ message: 'รูปแบบเดือนไม่ถูกต้อง (YYYY-MM)' });
-    }
-    if (!mongoose.isValidObjectId(room_id)) {
-        return res.status(400).json({ message: 'ไม่พบห้อง' });
-    }
-
-    const fields = ['water_prev', 'water_curr', 'elec_prev', 'elec_curr'];
-    const values = {};
-    for (const f of fields) {
-        const raw = req.body[f];
-        const n = Number(raw);
-        if (raw === '' || raw === null || raw === undefined || !Number.isFinite(n) || n < 0) {
-            return res.status(400).json({ message: 'กรุณากรอกเลขมิเตอร์ให้ครบ (ตัวเลขไม่ติดลบ)' });
-        }
-        values[f] = n;
-    }
-    if (values.water_curr < values.water_prev) {
-        return res.status(400).json({ message: 'เลขมิเตอร์น้ำครั้งนี้ต้องไม่น้อยกว่าครั้งก่อน' });
-    }
-    if (values.elec_curr < values.elec_prev) {
-        return res.status(400).json({ message: 'เลขมิเตอร์ไฟครั้งนี้ต้องไม่น้อยกว่าครั้งก่อน' });
-    }
-
-    try {
-        const invoices = await Invoice.find({ room_id, month });
-        if (!invoices.length) {
-            return res.status(400).json({ message: 'ห้องนี้ยังไม่มีบิลเดือนนี้ กรุณาออกบิลก่อน' });
-        }
-        if (invoices.some(i => i.status !== 'UNPAID')) {
-            return res.status(400).json({ message: 'มีนิสิตในห้องนี้ชำระบิลเดือนนี้แล้ว ไม่สามารถแก้มิเตอร์ได้' });
-        }
-
-        const reading = await MeterReading.findOneAndUpdate(
-            { room_id, month },
-            { ...values, room_id, month, room_number: invoices[0].room_number, recorded_by: req.user.username, recorded_at: new Date() },
-            { upsert: true, new: true }
-        );
-        const count = await applyMeterToInvoices(reading);
-        const updated = await Invoice.find({ room_id, month });
-
-        res.json({
-            message: `บันทึกมิเตอร์ห้อง ${reading.room_number} แล้ว อัปเดตบิล ${count} รายการ`,
-            reading,
-            invoices: updated.map(inv => ({ ...inv.toObject(), overdue: isOverdue(inv) }))
+            message: rent || utility
+                ? `ออกบิลใหม่แล้ว: ค่าห้อง ${rent} ใบ, ค่าน้ำ-ไฟ ${utility} ใบ`
+                : 'ไม่มีบิลใหม่ที่ถึงรอบ',
+            rent,
+            utility
         });
     } catch (err) {
         res.status(500).json({ message: 'เกิดข้อผิดพลาด', error: err.message });
@@ -929,10 +901,43 @@ app.put('/api/admin/meters', verifyAdmin, async (req, res) => {
 // --- GET /api/admin/invoices (รายการบิลทั้งหมด, กรองด้วย ?month=YYYY-MM) ---
 app.get('/api/admin/invoices', verifyAdmin, async (req, res) => {
     try {
+        await ensureInvoicesUpToDate();
         const filter = {};
         if (MONTH_PATTERN.test(String(req.query.month || ''))) filter.month = req.query.month;
-        const invoices = await Invoice.find(filter).sort({ month: -1, room_number: 1 });
-        res.json(invoices.map(inv => ({ ...inv.toObject(), overdue: isOverdue(inv) })));
+        const invoices = await Invoice.find(filter).sort({ due_date: -1, room_number: 1 });
+        res.json(invoices.map(inv => ({ ...inv.toObject(), kind: inv.kind || 'RENT', overdue: isOverdue(inv) })));
+    } catch (err) {
+        res.status(500).json({ message: 'เกิดข้อผิดพลาด', error: err.message });
+    }
+});
+
+// --- PUT /api/admin/rooms/:id/fees (ตั้งค่าน้ำ-ค่าไฟเหมาจ่ายของห้อง) ---
+// body: { water_fee, electric_fee } บาทต่อเดือนของทั้งห้อง
+app.put('/api/admin/rooms/:id/fees', verifyAdmin, async (req, res) => {
+    const fees = {};
+    for (const key of ['water_fee', 'electric_fee']) {
+        const raw = req.body[key];
+        const n = Number(raw);
+        if (raw === '' || raw === null || raw === undefined || !Number.isFinite(n) || n < 0 || n > 100000) {
+            return res.status(400).json({ message: 'ค่าน้ำ/ค่าไฟต้องเป็นตัวเลข 0 – 100,000' });
+        }
+        fees[key] = round2(n);
+    }
+
+    try {
+        if (!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({ message: 'ไม่พบห้อง' });
+        const room = await Room.findByIdAndUpdate(req.params.id, fees, { new: true });
+        if (!room) return res.status(404).json({ message: 'ไม่พบห้อง' });
+
+        const refreshed = await refreshRoomUtilityInvoices(room);
+        const created = await ensureInvoicesUpToDate(true); // ห้องเพิ่งตั้งค่า -> ออกบิลเดือนนี้ให้เลย
+
+        res.json({
+            message: `บันทึกค่าน้ำ-ไฟห้อง ${room.room_number} แล้ว`
+                + (refreshed.updated ? ` · ปรับบิลค้างชำระ ${refreshed.updated} ใบ` : '')
+                + (created?.utility ? ` · ออกบิลใหม่ ${created.utility} ใบ` : ''),
+            room
+        });
     } catch (err) {
         res.status(500).json({ message: 'เกิดข้อผิดพลาด', error: err.message });
     }
@@ -982,7 +987,7 @@ app.post('/api/admin/invoices/:id/review', verifyAdmin, async (req, res) => {
             message: action === 'APPROVED'
                 ? 'อนุมัติการชำระบิลแล้ว'
                 : `ปฏิเสธการชำระบิลแล้ว ระบบคืนเงิน ${invoice.amount} บาท บิลกลับเป็นค้างชำระ`,
-            invoice: { ...invoice.toObject(), overdue: isOverdue(invoice) }
+            invoice: { ...invoice.toObject(), kind: invoice.kind || 'RENT', overdue: isOverdue(invoice) }
         });
     } catch (err) {
         res.status(500).json({ message: 'เกิดข้อผิดพลาด', error: err.message });
@@ -1178,10 +1183,11 @@ const syncReservationStatusValidator = async () => {
     console.log(`✅ reservations validator: เพิ่มสถานะ ${missing.join(', ')}`);
 };
 
-// --- บิลที่ออกก่อนมีระบบค่าน้ำ/ไฟ: เติม room_id และรายการค่าห้อง (items) ให้ ---
-const backfillInvoiceItems = async () => {
-    const old = await Invoice.find({ $or: [{ room_id: null }, { items: { $size: 0 } }] });
+// --- บิลรูปแบบเก่า: เติมประเภท/ห้อง/รายการ แล้วอัปเดต index ของ invoices ---
+const syncInvoices = async () => {
+    const old = await Invoice.find({ $or: [{ kind: null }, { room_id: null }, { items: { $size: 0 } }] });
     for (const inv of old) {
+        if (!inv.kind) inv.kind = 'RENT';
         if (!inv.room_id) {
             const booking = await Booking.findById(inv.booking_id);
             if (booking) inv.room_id = booking.room_id;
@@ -1190,6 +1196,16 @@ const backfillInvoiceItems = async () => {
         await inv.save();
     }
     if (old.length) console.log(`✅ invoices: อัปเดตบิลรูปแบบเก่า ${old.length} รายการ`);
+    await Invoice.syncIndexes(); // เปลี่ยน unique index เป็น (booking_id, kind, month)
+};
+
+// ออกบิลที่ถึงรอบอัตโนมัติ ทุกชั่วโมง
+const startInvoiceScheduler = async () => {
+    const result = await ensureInvoicesUpToDate(true);
+    if (result && (result.rent || result.utility)) {
+        console.log(`✅ invoices: ออกบิลใหม่ ค่าห้อง ${result.rent} ใบ, ค่าน้ำ-ไฟ ${result.utility} ใบ`);
+    }
+    setInterval(() => ensureInvoicesUpToDate(true), 60 * 60 * 1000);
 };
 
 // --- Connect MongoDB ---
@@ -1199,7 +1215,8 @@ mongoose.connect(process.env.MONGODB_URI)
         await hashExistingPasswords();
         await syncAdminFromEnv();
         await syncReservationStatusValidator();
-        await backfillInvoiceItems();
+        await syncInvoices();
+        await startInvoiceScheduler();
     })
     .catch(err => console.error('MongoDB Error:', err));
 

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { formatBaht, formatMonth, formatDate, formatItemLabel } from '../utils/format';
+import { formatBaht, formatMonth, formatDate, formatItemLabel, formatBillTitle } from '../utils/format';
 import './PaymentPage.css';
 import './BillsPage.css';
 
@@ -10,13 +10,21 @@ const API_URL = import.meta.env.VITE_API_URL || '';
 const FILTERS = [
   { key: 'ALL', label: 'ทั้งหมด' },
   { key: 'UNPAID', label: 'ค้างชำระ' },
+  { key: 'RENT', label: 'ค่าห้อง' },
+  { key: 'UTILITY', label: 'ค่าน้ำ-ไฟ' },
   { key: 'DONE', label: 'ชำระแล้ว' },
 ];
+
+const matchFilter = (bill, filter) => {
+  if (filter === 'UNPAID') return bill.status === 'UNPAID';
+  if (filter === 'DONE') return bill.status !== 'UNPAID';
+  if (filter === 'RENT' || filter === 'UTILITY') return bill.invoice_kind === filter;
+  return true;
+};
 
 // สถานะบิล -> ข้อความ/สี
 const billStatus = (bill) => {
   if (bill.status === 'UNPAID') {
-    if (!bill.utilities_recorded) return { label: 'รอบันทึกค่าน้ำ-ไฟ', className: 'waiting' };
     return bill.overdue
       ? { label: 'เกินกำหนดชำระ', className: 'overdue' }
       : { label: 'ค้างชำระ', className: 'unpaid' };
@@ -47,17 +55,15 @@ export default function BillsPage() {
 
   const all = bills || [];
   const unpaid = all.filter(b => b.status === 'UNPAID');
-  const payable = unpaid.filter(b => b.utilities_recorded);
-  const unpaidTotal = payable.reduce((sum, b) => sum + b.amount, 0);
-  // เดือนล่าสุดที่บันทึกค่าน้ำ/ไฟแล้ว
-  const latestMetered = [...all].reverse().find(b => b.utilities_recorded);
-  const water = latestMetered && itemOf(latestMetered, 'WATER');
-  const elec = latestMetered && itemOf(latestMetered, 'ELECTRIC');
+  const unpaidTotal = unpaid.reduce((sum, b) => sum + b.amount, 0);
+  // บิลค่าห้องที่ครบกำหนดถัดไป
+  const nextRent = all.find(b => b.invoice_kind === 'RENT' && b.status === 'UNPAID');
+  // บิลค่าน้ำ-ไฟล่าสุด
+  const latestUtility = [...all].reverse().find(b => b.invoice_kind === 'UTILITY');
+  const water = latestUtility && itemOf(latestUtility, 'WATER');
+  const elec = latestUtility && itemOf(latestUtility, 'ELECTRIC');
 
-  const shown = all
-    .filter(b => filter === 'ALL' || (filter === 'UNPAID' ? b.status === 'UNPAID' : b.status !== 'UNPAID'))
-    .slice()
-    .reverse(); // เดือนล่าสุดอยู่บน
+  const shown = all.filter(b => matchFilter(b, filter)).slice().reverse(); // ล่าสุดอยู่บน
 
   return (
     <div className="bills-page">
@@ -74,32 +80,31 @@ export default function BillsPage() {
         {bills && (
           <>
             <section className="bills-stats">
-              <div className={`bills-stat ${payable.length ? 'due' : ''}`}>
+              <div className={`bills-stat ${unpaid.length ? 'due' : ''}`}>
                 <span className="bills-stat-label">ยอดค้างชำระ</span>
                 <strong className="bills-stat-value">{formatBaht(unpaidTotal)} บาท</strong>
+                <span className="bills-stat-sub">{unpaid.length ? `${unpaid.length} บิล` : 'ไม่มีบิลค้างชำระ'}</span>
+              </div>
+              <div className="bills-stat">
+                <span className="bills-stat-label">🏠 ค่าห้องครบกำหนดถัดไป</span>
+                <strong className="bills-stat-value">{nextRent ? formatDate(nextRent.due_date) : '-'}</strong>
                 <span className="bills-stat-sub">
-                  {payable.length ? `${payable.length} บิล` : 'ไม่มีบิลค้างชำระ'}
-                  {unpaid.length > payable.length && ` · รอบันทึกค่าน้ำ-ไฟ ${unpaid.length - payable.length} บิล`}
+                  {nextRent ? `${formatBaht(nextRent.amount)} บาท · ตามวันที่จอง` : 'ยังไม่มีบิลค่าห้องที่ต้องจ่าย'}
                 </span>
               </div>
               <div className="bills-stat">
-                <span className="bills-stat-label">💧 ค่าน้ำล่าสุด</span>
-                <strong className="bills-stat-value">{water ? `${formatBaht(water.amount)} บาท` : '-'}</strong>
+                <span className="bills-stat-label">💧⚡ ค่าน้ำ-ไฟล่าสุด</span>
+                <strong className="bills-stat-value">{latestUtility ? `${formatBaht(latestUtility.amount)} บาท` : '-'}</strong>
                 <span className="bills-stat-sub">
-                  {water ? `${formatMonth(latestMetered.month)} · ห้องใช้ ${water.units} หน่วย` : 'ยังไม่มีข้อมูล'}
-                </span>
-              </div>
-              <div className="bills-stat">
-                <span className="bills-stat-label">⚡ ค่าไฟล่าสุด</span>
-                <strong className="bills-stat-value">{elec ? `${formatBaht(elec.amount)} บาท` : '-'}</strong>
-                <span className="bills-stat-sub">
-                  {elec ? `${formatMonth(latestMetered.month)} · ห้องใช้ ${elec.units} หน่วย` : 'ยังไม่มีข้อมูล'}
+                  {latestUtility
+                    ? `${formatMonth(latestUtility.month)} · น้ำ ${formatBaht(water?.amount)} · ไฟ ${formatBaht(elec?.amount)}`
+                    : 'ยังไม่มีข้อมูล'}
                 </span>
               </div>
             </section>
 
             <div className="bills-toolbar">
-              <h2>บิลรายเดือน</h2>
+              <h2>บิลของฉัน</h2>
               <div className="bills-filters" role="tablist">
                 {FILTERS.map(f => (
                   <button
@@ -117,19 +122,24 @@ export default function BillsPage() {
 
             {shown.length === 0 ? (
               <p className="bills-empty">
-                {all.length === 0 ? 'ยังไม่มีบิล บิลจะออกทุกเดือนหลังจากเดือนแรกที่ชำระพร้อมการจอง' : 'ไม่มีบิลในหมวดนี้'}
+                {all.length === 0
+                  ? 'ยังไม่มีบิล บิลค่าห้องจะออกล่วงหน้า 7 วันก่อนครบกำหนดตามวันที่จอง'
+                  : 'ไม่มีบิลในหมวดนี้'}
               </p>
             ) : (
               <ul className="bills-list">
                 {shown.map(bill => {
                   const st = billStatus(bill);
-                  const canPay = bill.status === 'UNPAID' && bill.utilities_recorded;
                   return (
                     <li key={bill.invoice_id} className={`bills-card ${st.className}`}>
                       <div className="bills-card-head">
                         <div>
-                          <div className="bills-month">{formatMonth(bill.month)}</div>
-                          <div className="bills-meta">ห้อง {bill.room_number} · กำหนดชำระ {formatDate(bill.due_date)}</div>
+                          <span className={`bills-kind ${bill.invoice_kind === 'UTILITY' ? 'utility' : 'rent'}`}>
+                            <i className={`fa-solid ${bill.invoice_kind === 'UTILITY' ? 'fa-bolt' : 'fa-house'}`}></i>
+                            {bill.invoice_kind === 'UTILITY' ? 'ค่าน้ำ-ไฟ' : 'ค่าห้อง'}
+                          </span>
+                          <div className="bills-month">{formatBillTitle(bill)}</div>
+                          <div className="bills-meta">ห้อง {bill.room_number} · ครบกำหนด {formatDate(bill.due_date)}</div>
                         </div>
                         <span className={`pay-status ${st.className}`}>{st.label}</span>
                       </div>
@@ -141,12 +151,6 @@ export default function BillsPage() {
                             <dd>{formatBaht(item.amount)}</dd>
                           </div>
                         ))}
-                        {!bill.utilities_recorded && (
-                          <div className="bills-pending-row">
-                            <dt>ค่าน้ำ / ค่าไฟ</dt>
-                            <dd>รอบันทึกมิเตอร์</dd>
-                          </div>
-                        )}
                         <div className="bills-total">
                           <dt>รวม</dt>
                           <dd>{formatBaht(bill.amount)} บาท</dd>
@@ -160,12 +164,11 @@ export default function BillsPage() {
                       )}
 
                       <div className="bills-card-foot">
-                        {canPay && (
+                        {bill.status === 'UNPAID' ? (
                           <button className="pay-btn" onClick={() => navigate(`/PaymentPage?invoice=${bill.invoice_id}`)}>
                             ชำระ {formatBaht(bill.amount)} บาท
                           </button>
-                        )}
-                        {bill.status !== 'UNPAID' && (
+                        ) : (
                           <button className="pay-btn secondary" onClick={() => navigate(`/PaymentPage?invoice=${bill.invoice_id}`)}>
                             ดูใบเสร็จ
                           </button>
@@ -178,7 +181,7 @@ export default function BillsPage() {
             )}
 
             <p className="bills-note">
-              ค่าน้ำ-ค่าไฟคิดจากมิเตอร์ของห้อง หารเท่ากันตามจำนวนผู้พัก · กำหนดชำระภายในวันที่ 10 ของทุกเดือน
+              ค่าห้องครบกำหนดทุกเดือนตามวันที่จอง · ค่าน้ำ-ไฟเหมาจ่ายต่อห้อง หารเท่ากันตามจำนวนผู้พัก ครบกำหนดสิ้นเดือน
             </p>
           </>
         )}

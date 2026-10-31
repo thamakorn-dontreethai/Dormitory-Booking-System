@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
-import { formatBaht, formatMonth, formatDate, formatItemLabel } from '../utils/format';
+import { formatBaht, formatDate, formatItemLabel, formatBillTitle } from '../utils/format';
 import './PaymentPage.css';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
@@ -76,7 +76,7 @@ function Receipt({ summary, user, onBack, backLabel }) {
       </p>
 
       <dl className="pay-rows">
-        <div><dt>รายการ</dt><dd>{isInvoice ? `ค่าห้องประจำเดือน ${formatMonth(summary.month)}` : 'ค่าจองห้องพัก'}</dd></div>
+        <div><dt>รายการ</dt><dd>{isInvoice ? formatBillTitle(summary) : 'ค่าจองห้องพัก'}</dd></div>
         <div>
           <dt>สถานะ</dt>
           <dd><span className={`pay-status ${isReviewing ? 'reviewing' : 'approved'}`}>
@@ -204,21 +204,6 @@ export default function PaymentPage() {
     );
   }
 
-  // บิลรายเดือนที่ยังไม่บันทึกค่าน้ำ/ไฟ ยังจ่ายไม่ได้
-  if (summary.kind === 'INVOICE' && !summary.utilities_recorded) {
-    return (
-      <div className="pay-wrapper">
-        <div className="pay-card">
-          <h2 className="pay-title">บิลเดือน {formatMonth(summary.month)} ยังไม่พร้อมชำระ</h2>
-          <p className="pay-desc">รอเจ้าหน้าที่บันทึกมิเตอร์ค่าน้ำ-ค่าไฟของห้อง {summary.room_number} เมื่อบันทึกแล้วจะชำระได้ทันที</p>
-          <div className="pay-actions">
-            <button className="pay-btn" onClick={goBack}>{backLabel}</button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="pay-wrapper">
       <button type="button" className="pay-back-btn no-print" onClick={goBack} disabled={processing}>
@@ -231,7 +216,7 @@ export default function PaymentPage() {
           <h3 className="pay-section-title">สรุปรายการ</h3>
           <dl className="pay-rows">
             {summary.kind === 'INVOICE' && (
-              <div><dt>ประจำเดือน</dt><dd>{formatMonth(summary.month)}</dd></div>
+              <div><dt>รายการ</dt><dd>{formatBillTitle(summary)}</dd></div>
             )}
             <div><dt>ผู้จอง</dt><dd>{user.full_name}</dd></div>
             <div><dt>อาคาร</dt><dd>{summary.building_name}</dd></div>
