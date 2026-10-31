@@ -155,6 +155,7 @@ export default function Admin() {
     const [generating, setGenerating] = useState(false);
     const [feeForm, setFeeForm] = useState({}); // room_id -> { water_fee, electric_fee } ที่กำลังแก้
     const [savingFee, setSavingFee] = useState(null); // room_id ที่กำลังบันทึก หรือ 'BULK'
+    const [feeStatus, setFeeStatus] = useState({}); // room_id -> { type: saving|saved|error, text }
     const [bulkFee, setBulkFee] = useState({ water_fee: '', electric_fee: '' });
 
     const token = localStorage.getItem('adminToken');
@@ -247,8 +248,11 @@ export default function Admin() {
         return data;
     };
 
+    // บันทึกอัตโนมัติเมื่อออกจากช่อง/กด Enter แล้วแสดงสถานะข้างช่อง
     const saveFees = async (room) => {
+        if (!feeChanged(room) || savingFee !== null) return;
         setSavingFee(room._id);
+        setFeeStatus(prev => ({ ...prev, [room._id]: { type: 'saving', text: 'กำลังบันทึก...' } }));
         try {
             const data = await putFees(room._id, {
                 water_fee: feeValue(room, 'water_fee'),
@@ -256,9 +260,16 @@ export default function Admin() {
             });
             const inv = await axios.get(`${API_URL}/api/admin/invoices`);
             setInvoices(inv.data);
-            alert(data.message);
+            const extra = data.message.split(' · ').slice(1).join(' · '); // เช่น "ออกบิลใหม่ 1 ใบ"
+            setFeeStatus(prev => ({ ...prev, [room._id]: { type: 'saved', text: `บันทึกแล้ว${extra ? ` · ${extra}` : ''}` } }));
+            setTimeout(() => setFeeStatus(prev => {
+                if (prev[room._id]?.type !== 'saved') return prev;
+                const next = { ...prev };
+                delete next[room._id];
+                return next;
+            }), 5000);
         } catch (err) {
-            alert(err.response?.data?.message || 'บันทึกไม่สำเร็จ');
+            setFeeStatus(prev => ({ ...prev, [room._id]: { type: 'error', text: err.response?.data?.message || 'บันทึกไม่สำเร็จ' } }));
         } finally {
             setSavingFee(null);
         }
@@ -796,7 +807,7 @@ export default function Admin() {
                             <div className="ad-generate-card">
                                 <div>
                                     <strong>ค่าน้ำ-ค่าไฟเหมาจ่าย (บาท/เดือน ทั้งห้อง)</strong>
-                                    <p>ตั้งทีละห้องได้ในตาราง หรือตั้งให้ทุกห้องที่แสดงอยู่ (ใช้ช่องค้นหาเลือกอาคารก่อนได้) · ระบบหารเท่ากันตามจำนวนผู้พัก</p>
+                                    <p>แก้ในตารางแล้วกด Enter หรือคลิกที่อื่น ระบบบันทึกให้ทันที หรือตั้งให้ทุกห้องที่แสดงอยู่ (ใช้ช่องค้นหาเลือกอาคารก่อนได้) · ระบบหารเท่ากันตามจำนวนผู้พัก</p>
                                 </div>
                                 <div className="ad-fee-bulk">
                                     <label>💧 <input type="number" min="0" className="ad-fee-input" placeholder="น้ำ" value={bulkFee.water_fee} onChange={e => setBulkFee(p => ({ ...p, water_fee: e.target.value }))} aria-label="ค่าน้ำทุกห้อง" /></label>
@@ -827,15 +838,29 @@ export default function Admin() {
                                                 <td>{r.type_id?.type_name || '-'}</td>
                                                 <td>{r.type_id?.cooling_type || '-'}</td>
                                                 <td>
-                                                    <div className="ad-fee-row">
-                                                        <input type="number" min="0" className="ad-fee-input" value={feeValue(r, 'water_fee')} onChange={e => setFeeValue(r._id, 'water_fee', e.target.value)} aria-label={`ค่าน้ำห้อง ${r.room_number}`} title="ค่าน้ำ" />
-                                                        <input type="number" min="0" className="ad-fee-input" value={feeValue(r, 'electric_fee')} onChange={e => setFeeValue(r._id, 'electric_fee', e.target.value)} aria-label={`ค่าไฟห้อง ${r.room_number}`} title="ค่าไฟ" />
-                                                        {feeChanged(r) && (
-                                                            <button className="ad-btn approve" onClick={() => saveFees(r)} disabled={savingFee !== null}>
-                                                                {savingFee === r._id ? '...' : 'บันทึก'}
-                                                            </button>
-                                                        )}
+                                                    <div
+                                                        className="ad-fee-row"
+                                                        // ออกจากช่องทั้งคู่แล้ว (ไม่ได้ย้ายไปอีกช่องในแถวเดียวกัน) -> บันทึก
+                                                        onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget)) saveFees(r); }}
+                                                    >
+                                                        <label className="ad-fee-field">
+                                                            <span>💧</span>
+                                                            <input type="number" min="0" className="ad-fee-input" value={feeValue(r, 'water_fee')} onChange={e => setFeeValue(r._id, 'water_fee', e.target.value)} onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }} aria-label={`ค่าน้ำห้อง ${r.room_number}`} title="ค่าน้ำ (บาท/เดือน)" />
+                                                        </label>
+                                                        <label className="ad-fee-field">
+                                                            <span>⚡</span>
+                                                            <input type="number" min="0" className="ad-fee-input" value={feeValue(r, 'electric_fee')} onChange={e => setFeeValue(r._id, 'electric_fee', e.target.value)} onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }} aria-label={`ค่าไฟห้อง ${r.room_number}`} title="ค่าไฟ (บาท/เดือน)" />
+                                                        </label>
                                                     </div>
+                                                    {feeStatus[r._id] && (
+                                                        <div className={`ad-fee-status ${feeStatus[r._id].type}`} role="status">
+                                                            {feeStatus[r._id].type === 'saved' ? '✓ ' : feeStatus[r._id].type === 'error' ? '⚠ ' : '⏳ '}
+                                                            {feeStatus[r._id].text}
+                                                        </div>
+                                                    )}
+                                                    {!feeStatus[r._id] && feeChanged(r) && (
+                                                        <div className="ad-fee-status pending">กด Enter หรือคลิกที่อื่นเพื่อบันทึก</div>
+                                                    )}
                                                 </td>
                                                 <td>
                                                     <select

@@ -108,6 +108,8 @@ export default function HomePage() {
   const unpaidBills = (bills || []).filter(b => b.status === 'UNPAID');
   const unpaidTotal = unpaidBills.reduce((s, b) => s + b.amount, 0);
   const bookingStatus = booking && BOOKING_STATUS[booking.status];
+  // มีการจองแล้ว: ยังไม่จ่ายค่าจอง -> หน้าชำระ, จ่ายแล้ว -> ห้องของฉัน
+  const myRoomPath = !booking ? '/BookingPage' : booking.status === 'PENDING' ? '/PaymentPage' : '/BillsPage';
 
   // ข้อความสถานะบนปุ่มหลัก
   const bookingHint = !user
@@ -192,10 +194,10 @@ export default function HomePage() {
           <h1>วันนี้ต้องการทำอะไร?</h1>
 
           <div className="hp-actions">
-            <button className="hp-action" onClick={goStudentPage('/BookingPage')}>
-              <span className="hp-action-icon"><i className="fa-solid fa-bed"></i></span>
+            <button className="hp-action" onClick={goStudentPage(myRoomPath)}>
+              <span className="hp-action-icon"><i className={`fa-solid ${booking ? 'fa-door-open' : 'fa-bed'}`}></i></span>
               <span className="hp-action-text">
-                <strong>จองห้องพัก</strong>
+                <strong>{booking ? 'ห้องของฉัน' : 'จองห้องพัก'}</strong>
                 <small>{bookingHint}</small>
               </span>
               <i className="fa-solid fa-arrow-right hp-action-go"></i>

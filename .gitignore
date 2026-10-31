@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# รูปไดอะแกรม/เอกสาร (ไม่ commit)
+docs/*.png
+docs/*.jpg
+docs/*.jpeg
+docs/*.svg

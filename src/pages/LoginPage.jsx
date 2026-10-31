@@ -6,11 +6,22 @@ import './LoginPage.css';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
+// หน้าแรกหลัง login ตามสถานะการจอง: ยังไม่จ่ายค่าจอง -> หน้าชำระ, มีห้องแล้ว -> ห้องของฉัน, ยังไม่จอง -> หน้าจอง
+const landingPath = async (requested) => {
+  try {
+    const { data } = await axios.get(`${API_URL}/api/my-reservation`);
+    const status = data?.reservation?.status;
+    if (status === 'PENDING') return '/PaymentPage';
+    if (status === 'PAID' || status === 'CONFIRMED') return '/BillsPage';
+  } catch { /* โหลดสถานะไม่ได้ ใช้หน้าที่ขอมา */ }
+  return requested || '/BookingPage';
+};
+
 export default function LoginPage() {
   const location = useLocation();
   const registered = location.state?.registered;
-  // login แล้วกลับไปหน้าที่กดมา (เช่น ค่าห้อง/น้ำ/ไฟ) ถ้าไม่มีให้ไปหน้าจองห้อง
-  const redirectTo = ['/BookingPage', '/BillsPage'].includes(location.state?.from) ? location.state.from : '/BookingPage';
+  // หน้าที่กดมาก่อน login (ถ้ามี)
+  const requested = ['/BookingPage', '/BillsPage'].includes(location.state?.from) ? location.state.from : null;
   const [username, setUsername] = useState(location.state?.username || '');
   const [password, setPassword] = useState('');
   const [err, setErr] = useState('');
@@ -18,8 +29,8 @@ export default function LoginPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // login อยู่แล้ว (token ยังไม่หมดอายุ) ไปหน้าจองเลย
-    if (getStudentSession()) navigate(redirectTo, { replace: true });
+    // login อยู่แล้ว (token ยังไม่หมดอายุ) ไปหน้าที่เหมาะกับสถานะเลย
+    if (getStudentSession()) landingPath(requested).then(path => navigate(path, { replace: true }));
   }, []);
 
   const onSubmit = async (e) => {
@@ -37,7 +48,7 @@ export default function LoginPage() {
       });
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
-      navigate(redirectTo, { replace: true });
+      navigate(await landingPath(requested), { replace: true });
     } catch (e) {
       setErr(e?.response?.data?.message || 'เข้าสู่ระบบไม่สำเร็จ');
     } finally {

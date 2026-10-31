@@ -874,3 +874,31 @@ body {
     border-color: var(--green-500);
     box-shadow: 0 0 0 3px var(--green-100);
 }
+
+.ad-fee-field {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+}
+
+.ad-fee-status {
+    margin-top: 4px;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.ad-fee-status.saving,
+.ad-fee-status.pending {
+    color: var(--gray-500);
+}
+
+.ad-fee-status.saved {
+    color: var(--green-700);
+    font-weight: 600;
+}
+
+.ad-fee-status.error {
+    color: #dc2626;
+    font-weight: 600;
+}

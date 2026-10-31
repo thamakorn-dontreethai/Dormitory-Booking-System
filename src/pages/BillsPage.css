@@ -328,3 +328,110 @@
 .bills-filters {
   flex-wrap: wrap;
 }
+
+/* ── ห้องของฉัน ───────────────────────────── */
+.bills-room {
+  position: relative;
+  z-index: 1;
+  margin-top: -16px;
+  margin-bottom: 16px;
+  background: #ffffff;
+  border: 1px solid #d0e4d0;
+  border-radius: 14px;
+  padding: 18px 20px;
+  box-shadow: 0 4px 16px rgba(45, 122, 45, 0.06);
+}
+
+.bills-room.empty {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.bills-room.empty p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #6b886b;
+}
+
+.bills-room-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.bills-room-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #2d7a2d;
+  letter-spacing: 0.3px;
+}
+
+.bills-room h2 {
+  margin: 2px 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #1f3a1f;
+}
+
+.bills-room-head p {
+  margin: 0;
+  font-size: 13px;
+  color: #6b886b;
+}
+
+.bills-room-alert {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #fff3e0;
+  color: #8a4b00;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.bills-room-grid {
+  margin: 14px 0 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 20px;
+  padding-top: 14px;
+  border-top: 1px dashed #d0e4d0;
+}
+
+.bills-room-grid dt {
+  font-size: 12px;
+  color: #6b886b;
+}
+
+.bills-room-grid dd {
+  margin: 2px 0 0;
+  font-size: 15px;
+  font-weight: 500;
+  color: #1f3a1f;
+}
+
+.bills-room-grid small {
+  font-size: 12px;
+  color: #6b886b;
+  font-weight: 400;
+}
+
+/* มีการ์ดห้องอยู่ด้านบนแล้ว การ์ดสรุปไม่ต้องดึงขึ้นทับ header */
+.bills-room + .bills-stats {
+  margin-top: 0;
+}
+
+@media (max-width: 640px) {
+  .bills-room-grid {
+    grid-template-columns: 1fr;
+  }
+}

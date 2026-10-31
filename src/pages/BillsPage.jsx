@@ -41,6 +41,7 @@ export default function BillsPage() {
   const [bills, setBills] = useState(null);
   const [err, setErr] = useState('');
   const [filter, setFilter] = useState('ALL');
+  const [myRoom, setMyRoom] = useState(null); // { booking, room, roommates, utility, next_rent, next_utility }
 
   useEffect(() => {
     const u = JSON.parse(localStorage.getItem('user') || 'null');
@@ -49,6 +50,9 @@ export default function BillsPage() {
     axios.get(`${API_URL}/api/my-invoices`)
       .then(res => setBills(Array.isArray(res.data) ? res.data : []))
       .catch(e => setErr(e?.response?.data?.message || 'ไม่สามารถโหลดข้อมูลบิลได้'));
+    axios.get(`${API_URL}/api/my-room`)
+      .then(res => setMyRoom(res.data))
+      .catch(() => setMyRoom({ booking: null }));
   }, [navigate]);
 
   if (!user) return null;
@@ -65,17 +69,73 @@ export default function BillsPage() {
 
   const shown = all.filter(b => matchFilter(b, filter)).slice().reverse(); // ล่าสุดอยู่บน
 
+  const hasRoom = !!myRoom?.booking;
+  const r = myRoom?.room;
+  const util = myRoom?.utility;
+  const nextRentSchedule = myRoom?.next_rent;
+  const nextUtilitySchedule = myRoom?.next_utility;
+  const issued = (d) => new Date(d) <= new Date(); // บิลออกแล้วหรือยัง
+
   return (
     <div className="bills-page">
       <header className="bills-header">
-        <button type="button" className="bills-back" onClick={() => navigate('/BookingPage')}>← กลับหน้าจองห้อง</button>
-        <h1>ชำระค่าห้อง ค่าน้ำ ค่าไฟ</h1>
+        <button type="button" className="bills-back" onClick={() => navigate('/')}>← หน้าแรก</button>
+        <h1>{hasRoom ? `ห้องของฉัน · ${r?.room_number}` : 'ชำระค่าห้อง ค่าน้ำ ค่าไฟ'}</h1>
         <p>{user.full_name} · {user.student_code}</p>
       </header>
 
       <main className="bills-main">
         {err && <div className="pay-error">{err}</div>}
         {!err && bills === null && <div className="pay-loading">กำลังโหลดข้อมูล...</div>}
+
+        {myRoom && !hasRoom && (
+          <section className="bills-room empty">
+            <div>
+              <strong>ยังไม่มีการจองห้องพัก</strong>
+              <p>เลือกอาคารและห้องที่ว่างได้ที่หน้าจองห้อง</p>
+            </div>
+            <button className="pay-btn" onClick={() => navigate('/BookingPage')}>ไปจองห้อง</button>
+          </section>
+        )}
+
+        {hasRoom && (
+          <section className="bills-room">
+            <div className="bills-room-head">
+              <div>
+                <span className="bills-room-label">ห้องของฉัน</span>
+                <h2>{r.building_name} · ห้อง {r.room_number}</h2>
+                <p>{r.type_name} · {r.cooling_type === 'AC' ? 'แอร์' : r.cooling_type === 'FAN' ? 'พัดลม' : r.cooling_type} · {r.capacity} คน</p>
+              </div>
+              <span className={`pay-status ${myRoom.booking.status === 'CONFIRMED' ? 'approved' : myRoom.booking.status === 'PAID' ? 'reviewing' : 'unpaid'}`}>
+                {{ CONFIRMED: 'เข้าพักได้', PAID: 'รอตรวจสอบการชำระ', PENDING: 'รอชำระค่าจอง' }[myRoom.booking.status]}
+              </span>
+            </div>
+
+            {myRoom.booking.status === 'PENDING' && (
+              <div className="bills-room-alert">
+                ยังไม่ได้ชำระค่าจอง
+                <button className="pay-btn" onClick={() => navigate('/PaymentPage')}>ชำระค่าจอง</button>
+              </div>
+            )}
+
+            <dl className="bills-room-grid">
+              <div><dt>สัญญาเช่า</dt><dd>{formatDate(myRoom.booking.start_date)} – {formatDate(myRoom.booking.end_date)}</dd></div>
+              <div><dt>ค่าห้อง</dt><dd>{formatBaht(r.rent)} บาท/เดือน</dd></div>
+              <div>
+                <dt>ค่าน้ำ-ไฟ (ส่วนของฉัน)</dt>
+                <dd>
+                  {util.active
+                    ? <>{formatBaht(util.per_person)} บาท/เดือน <small>(ห้อง {formatBaht(util.water_fee + util.electric_fee)} ÷ {util.share} คน)</small></>
+                    : <small>ห้องนี้ยังไม่ได้ตั้งค่า</small>}
+                </dd>
+              </div>
+              <div>
+                <dt>ผู้พักร่วม</dt>
+                <dd>{myRoom.roommates.length ? myRoom.roommates.map(m => m.full_name).join(', ') : <small>ยังไม่มี</small>}</dd>
+              </div>
+            </dl>
+          </section>
+        )}
 
         {bills && (
           <>
@@ -87,9 +147,17 @@ export default function BillsPage() {
               </div>
               <div className="bills-stat">
                 <span className="bills-stat-label">🏠 ค่าห้องครบกำหนดถัดไป</span>
-                <strong className="bills-stat-value">{nextRent ? formatDate(nextRent.due_date) : '-'}</strong>
+                <strong className="bills-stat-value">
+                  {nextRent ? formatDate(nextRent.due_date) : nextRentSchedule ? formatDate(nextRentSchedule.due_date) : '-'}
+                </strong>
                 <span className="bills-stat-sub">
-                  {nextRent ? `${formatBaht(nextRent.amount)} บาท · ตามวันที่จอง` : 'ยังไม่มีบิลค่าห้องที่ต้องจ่าย'}
+                  {nextRent
+                    ? `${formatBaht(nextRent.amount)} บาท · บิลออกแล้ว`
+                    : nextRentSchedule
+                      ? (issued(nextRentSchedule.issue_date)
+                        ? 'บิลกำลังออก'
+                        : `${formatBaht(r?.rent)} บาท · บิลจะออก ${formatDate(nextRentSchedule.issue_date)}`)
+                      : hasRoom ? 'ครบสัญญาแล้ว' : 'ยังไม่มีการจอง'}
                 </span>
               </div>
               <div className="bills-stat">
@@ -98,7 +166,9 @@ export default function BillsPage() {
                 <span className="bills-stat-sub">
                   {latestUtility
                     ? `${formatMonth(latestUtility.month)} · น้ำ ${formatBaht(water?.amount)} · ไฟ ${formatBaht(elec?.amount)}`
-                    : 'ยังไม่มีข้อมูล'}
+                    : nextUtilitySchedule
+                      ? `เดือนที่จองไม่คิด · บิลแรกออก ${formatDate(nextUtilitySchedule.issue_date)}`
+                      : hasRoom && !util?.active ? 'ห้องยังไม่ได้ตั้งค่าน้ำ-ไฟ' : 'ยังไม่มีข้อมูล'}
                 </span>
               </div>
             </section>
@@ -123,8 +193,12 @@ export default function BillsPage() {
             {shown.length === 0 ? (
               <p className="bills-empty">
                 {all.length === 0
-                  ? 'ยังไม่มีบิล บิลค่าห้องจะออกล่วงหน้า 7 วันก่อนครบกำหนดตามวันที่จอง'
-                  : 'ไม่มีบิลในหมวดนี้'}
+                  ? (nextRentSchedule
+                    ? `ยังไม่มีบิล · ค่าห้องเดือนแรกชำระแล้วตอนจอง บิลค่าห้องรอบถัดไปจะออก ${formatDate(nextRentSchedule.issue_date)} (ครบกำหนด ${formatDate(nextRentSchedule.due_date)})`
+                    : 'ยังไม่มีบิล')
+                  : filter === 'UTILITY' && nextUtilitySchedule && !all.some(b => b.invoice_kind === 'UTILITY')
+                    ? `ยังไม่มีบิลค่าน้ำ-ไฟ · เดือนที่จองไม่คิดค่าน้ำ-ไฟ บิลแรกจะออก ${formatDate(nextUtilitySchedule.issue_date)}`
+                    : 'ไม่มีบิลในหมวดนี้'}
               </p>
             ) : (
               <ul className="bills-list">

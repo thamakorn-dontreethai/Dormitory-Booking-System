@@ -835,6 +835,87 @@ app.get('/api/my-invoices', verifyToken, async (req, res) => {
     }
 });
 
+// --- GET /api/my-room (ห้องของฉัน: รายละเอียดห้อง ผู้พักร่วม สัญญา และกำหนดบิลถัดไป) ---
+app.get('/api/my-room', verifyToken, async (req, res) => {
+    try {
+        const booking = await Booking.findOne({ student_id: req.user.id, status: { $in: ACTIVE_STATUSES } })
+            .sort({ created_at: -1 })
+            .populate({
+                path: 'room_id',
+                populate: [
+                    { path: 'type_id', select: 'type_name capacity monthly_price cooling_type' },
+                    { path: 'building_id', select: 'building_name deposit_amount' }
+                ]
+            });
+        if (!booking) return res.json({ booking: null });
+
+        const room = booking.room_id;
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+        // ผู้พักในห้อง (การจองที่ยืนยันแล้ว ใช้หารค่าน้ำ-ไฟ)
+        const roommates = await Booking.find({ room_id: room?._id, status: { $in: ACTIVE_STATUSES } })
+            .select('student_id full_name status');
+        const confirmedCount = roommates.filter(r => r.status === 'CONFIRMED').length || 1;
+
+        // ค่าห้องรอบถัดไป: วันครบรอบวันที่จองที่ยังไม่ถึง (บิลออกล่วงหน้า RENT_ISSUE_DAYS_BEFORE วัน)
+        let nextRent = null;
+        for (let n = 1; ; n++) {
+            const periodStart = addMonths(booking.start_date, n);
+            if (periodStart >= booking.end_date) break;
+            if (periodStart >= today) {
+                nextRent = {
+                    due_date: endOfDay(periodStart),
+                    issue_date: new Date(periodStart.getTime() - RENT_ISSUE_DAYS_BEFORE * DAY_MS),
+                    period_end: new Date(addMonths(booking.start_date, n + 1).getTime() - DAY_MS)
+                };
+                break;
+            }
+        }
+
+        // ค่าน้ำ-ไฟ: บิลออกต้นเดือนถัดไป (เดือนที่จองไม่คิด) ภายในสัญญา
+        const nextUtilityMonth = toMonthKey(new Date(now.getFullYear(), now.getMonth() + 1, 1));
+        const waterFee = room?.water_fee || 0;
+        const electricFee = room?.electric_fee || 0;
+        const utilityActive = waterFee > 0 || electricFee > 0;
+        const nextUtility = utilityActive && nextUtilityMonth <= toMonthKey(booking.end_date)
+            ? { issue_date: monthStartOf(nextUtilityMonth), due_date: monthEndOf(nextUtilityMonth), month: nextUtilityMonth }
+            : null;
+
+        res.json({
+            booking: {
+                reserve_id: booking._id,
+                status: booking.status,
+                start_date: booking.start_date,
+                end_date: booking.end_date
+            },
+            room: {
+                room_number: booking.room_number,
+                building_name: room?.building_id?.building_name,
+                type_name: room?.type_id?.type_name,
+                capacity: room?.type_id?.capacity,
+                cooling_type: room?.type_id?.cooling_type,
+                rent: Number(room?.type_id?.monthly_price?.toString() || 0),
+                deposit: Number(room?.building_id?.deposit_amount?.toString() || 0)
+            },
+            roommates: roommates
+                .filter(r => String(r.student_id) !== String(req.user.id))
+                .map(r => ({ full_name: r.full_name, status: r.status })),
+            utility: {
+                water_fee: waterFee,
+                electric_fee: electricFee,
+                share: confirmedCount,
+                per_person: round2((waterFee + electricFee) / confirmedCount),
+                active: utilityActive
+            },
+            next_rent: nextRent,
+            next_utility: nextUtility
+        });
+    } catch (err) {
+        res.status(500).json({ message: 'เกิดข้อผิดพลาด', error: err.message });
+    }
+});
+
 // --- GET /api/my-invoices/:id (รายละเอียดบิล / ใบเสร็จ) ---
 app.get('/api/my-invoices/:id', verifyToken, async (req, res) => {
     try {
